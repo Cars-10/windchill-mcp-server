@@ -98,7 +98,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       requestId,
       toolName,
       duration: `${duration}ms`,
-      resultSize: JSON.stringify(result).length
+      resultSize: result ? JSON.stringify(result).length : 0,
+      hasResult: !!result
     });
 
     return {
@@ -239,7 +240,7 @@ const healthServer = http.createServer((req, res) => {
                     content: [
                       {
                         type: 'text',
-                        text: JSON.stringify(result, null, 2),
+                        text: result ? JSON.stringify(result, null, 2) : 'No result returned',
                       },
                     ],
                   }
@@ -296,6 +297,158 @@ const healthServer = http.createServer((req, res) => {
 
       } catch (error: any) {
         logger.error('Error processing tools request', { requestId, error: error.message });
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: 'Invalid request',
+          message: error.message
+        }));
+      }
+    });
+  } else if (req.url?.startsWith('/api/tools/')) {
+    // Handle direct tool execution: /api/tools/{toolName}
+    const toolName = req.url.replace('/api/tools/', '');
+
+    logger.info('=== SERVER: Direct tool execution requested ===', {
+      requestId,
+      toolName,
+      ip: req.socket.remoteAddress,
+      timestamp: new Date().toISOString()
+    });
+
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+      try {
+        let parameters: any = {};
+
+        // Parse request body if present
+        if (body) {
+          const contentType = req.headers['content-type'] || '';
+
+          if (contentType.includes('application/x-www-form-urlencoded')) {
+            // Handle form data from Angular forms
+            logger.debug('Parsing form data', { requestId, contentType, bodyLength: body.length });
+
+            // Parse form data manually since we don't have querystring library
+            const formParams = new URLSearchParams(body);
+            for (const [key, value] of formParams.entries()) {
+              parameters[key] = value;
+            }
+
+            // Convert number parameters back to numbers
+            // We need to check the tool schema to know which parameters should be numbers
+            // For now, try to convert common number fields
+            if (parameters.limit || parameters.number) {
+              if (parameters.limit && !isNaN(Number(parameters.limit))) {
+                parameters.limit = Number(parameters.limit);
+              }
+              if (parameters.number && /^\d+$/.test(parameters.number)) {
+                parameters.number = Number(parameters.number);
+              }
+            }
+
+          } else if (contentType.includes('application/json')) {
+            // Handle JSON data
+            try {
+              parameters = JSON.parse(body);
+            } catch (parseError) {
+              logger.warn('Invalid JSON in tool execution request', { requestId, body });
+            }
+          } else {
+            // Try to parse as JSON first, fallback to form data
+            try {
+              parameters = JSON.parse(body);
+            } catch (parseError) {
+              logger.debug('Trying form data parsing as fallback', { requestId });
+              try {
+                const formParams = new URLSearchParams(body);
+                for (const [key, value] of formParams.entries()) {
+                  parameters[key] = value;
+                }
+              } catch (formParseError) {
+                logger.warn('Could not parse request body', { requestId, body });
+              }
+            }
+          }
+        }
+
+        logger.info('=== SERVER: Parameter parsing completed ===', {
+          requestId,
+          toolName,
+          parameterCount: Object.keys(parameters).length,
+          parameters: parameters,
+          parameterTypes: Object.entries(parameters).map(([k, v]) => ({ [k]: typeof v }))
+        });
+
+        const handler = toolHandlers.get(toolName);
+
+        if (!handler) {
+          logger.error('=== SERVER: Tool not found ===', {
+            requestId,
+            toolName,
+            availableTools: Array.from(toolHandlers.keys())
+          });
+
+          res.writeHead(404, {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          });
+          res.end(JSON.stringify({
+            error: 'Tool not found',
+            message: `Tool '${toolName}' is not available`
+          }));
+          return;
+        }
+
+        logger.info('=== SERVER: Executing tool handler ===', {
+          requestId,
+          toolName,
+          handlerFound: !!handler
+        });
+
+        try {
+          const result = await handler(parameters);
+
+          logger.info('=== SERVER: Tool execution successful ===', {
+            requestId,
+            toolName,
+            resultType: typeof result,
+            resultSize: result ? JSON.stringify(result).length : 0,
+            hasResult: !!result
+          });
+
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type'
+          });
+          res.end(JSON.stringify(result));
+
+        } catch (error: any) {
+          logger.error('=== SERVER: Tool execution failed ===', {
+            requestId,
+            toolName,
+            parameters,
+            error: error.message,
+            stack: error.stack
+          });
+
+          res.writeHead(500, {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          });
+          res.end(JSON.stringify({
+            error: 'Tool execution failed',
+            message: error.message || 'Internal server error'
+          }));
+        }
+
+      } catch (error: any) {
+        logger.error('Error processing tool execution', { requestId, error: error.message });
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           error: 'Invalid request',

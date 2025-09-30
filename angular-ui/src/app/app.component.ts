@@ -36,6 +36,7 @@ export class AppComponent implements OnInit, OnDestroy {
   constructor(private mcpService: McpService) {}
 
   ngOnInit() {
+    this.loadFilterPreferences();
     this.loadTools();
   }
 
@@ -71,6 +72,11 @@ export class AppComponent implements OnInit, OnDestroy {
       this.serverStatus = 'connected';
 
       console.log('Available agents:', this.agents);
+
+      // Apply saved filter preferences after tools are loaded
+      setTimeout(() => {
+        this.filterTools();
+      }, 100);
     } catch (error: any) {
       console.error('Failed to load tools:', error);
       this.serverStatus = 'disconnected';
@@ -124,10 +130,11 @@ export class AppComponent implements OnInit, OnDestroy {
 
       this.showExecutionModal = true;
 
-      console.log('Modal state set:', {
+      console.log('Modal opened successfully:', {
         selectedTool: this.selectedTool?.name,
         showExecutionModal: this.showExecutionModal,
-        parametersCount: this.cachedToolParameters.length
+        parametersCount: this.cachedToolParameters?.length || 0,
+        toolParams: this.cachedToolParameters?.map(p => ({ name: p.name, type: p.type, required: this.isRequired(tool, p.name) })) || []
       });
 
     } catch (error) {
@@ -148,28 +155,90 @@ export class AppComponent implements OnInit, OnDestroy {
       event.preventDefault();
     }
 
-    if (!this.selectedTool || this.executing) return;
+    console.log('executeTool called', {
+      selectedTool: this.selectedTool?.name,
+      executing: this.executing,
+      parameters: this.parameters
+    });
 
-    // Validate required parameters
-    const requiredParams = this.selectedTool.inputSchema?.required || [];
-    const missingParams = requiredParams.filter(param =>
-      !this.parameters[param] ||
-      (typeof this.parameters[param] === 'string' && this.parameters[param].trim() === '')
+    if (!this.selectedTool || this.executing) {
+      console.log('Early return: no selected tool or already executing');
+      return;
+    }
+
+    // Check if at least one parameter is provided (for document agent tools)
+    const allParams = this.cachedToolParameters || [];
+    const currentParams = this.parameters || {};
+
+    const providedParams = allParams.filter(param =>
+      currentParams[param.name] !== undefined &&
+      currentParams[param.name] !== null &&
+      (typeof currentParams[param.name] !== 'string' || currentParams[param.name].trim() !== '')
     );
 
-    if (missingParams.length > 0) {
+    console.log('Parameter analysis:', {
+      totalParams: allParams.length,
+      providedParams: providedParams.length,
+      providedParamNames: providedParams.map(p => p.name),
+      parameters: currentParams,
+      cachedToolParametersExists: !!this.cachedToolParameters,
+      parametersExists: !!this.parameters
+    });
+
+    // For document agent tools, allow execution if at least one parameter is provided
+    if (this.selectedTool?.agent === 'document' && providedParams.length === 0) {
+      console.log('Document agent: No parameters provided');
       this.executionResult = {
         success: false,
-        error: `Missing required parameters: ${missingParams.join(', ')}`
+        error: 'Please provide at least one search parameter (number, name, or type)'
       };
       return;
     }
 
-    // Process parameters (parse JSON for arrays and objects)
-    const processedParams = { ...this.parameters };
-    const toolParams = this.cachedToolParameters;
+    // Validate required parameters for non-document agents
+    if (this.selectedTool?.agent !== 'document') {
+      const requiredParams = this.selectedTool.inputSchema?.required || [];
+      const missingParams = requiredParams.filter(param =>
+        !this.parameters[param] ||
+        (typeof this.parameters[param] === 'string' && this.parameters[param].trim() === '')
+      );
 
+      if (missingParams.length > 0) {
+        console.log('Missing required parameters:', missingParams);
+        this.executionResult = {
+          success: false,
+          error: `Missing required parameters: ${missingParams.join(', ')}`
+        };
+        return;
+      }
+    }
+
+    console.log('Starting tool execution...', {
+      toolName: this.selectedTool?.name,
+      agent: this.selectedTool?.agent,
+      providedParams: providedParams.map(p => ({ name: p.name, value: currentParams[p.name] }))
+    });
+
+    // Process parameters (parse JSON for arrays and objects)
+    const processedParams = { ...currentParams };
+    const toolParams = this.cachedToolParameters || [];
+
+    console.log('=== PARAMETER PROCESSING DEBUG ===');
+    console.log('Original Parameters (from form):', currentParams);
+    console.log('Tool Parameter Schema:', toolParams.map(p => ({
+      name: p.name,
+      type: p.type,
+      description: p.description
+    })));
+
+    console.log('Parameter Processing Steps:');
     for (const param of toolParams) {
+      const originalValue = currentParams[param.name];
+      console.log(`Processing ${param.name} (${param.type}):`, {
+        originalValue: originalValue,
+        originalType: typeof originalValue,
+        willProcess: originalValue && typeof originalValue === 'string' && (param.type === 'array' || param.type === 'object' || param.type === 'number')
+      });
       const value = processedParams[param.name];
       if (value && typeof value === 'string') {
         if (param.type === 'array' || param.type === 'object') {
@@ -206,16 +275,84 @@ export class AppComponent implements OnInit, OnDestroy {
     }, 30000);
 
     try {
+      console.log('=== DETAILED TOOL EXECUTION DEBUG ===');
+      console.log('Tool Name:', this.selectedTool.name);
+      console.log('Tool Agent:', this.selectedTool.agent);
+      console.log('Tool Description:', this.selectedTool.description);
+
+      console.log('Processed Parameters (before sending):');
+      Object.entries(processedParams).forEach(([key, value]) => {
+        console.log(`  ${key}:`, {
+          value: value,
+          type: typeof value,
+          isEmpty: !value || (typeof value === 'string' && value.trim() === ''),
+          length: typeof value === 'string' ? value.length : 'N/A'
+        });
+      });
+
+      console.log('Parameter Summary:', {
+        totalParameters: Object.keys(processedParams).length,
+        parameterNames: Object.keys(processedParams),
+        parameterTypes: Object.entries(processedParams).map(([k, v]) => ({ [k]: typeof v })),
+        nonEmptyParams: Object.entries(processedParams).filter(([k, v]) =>
+          v !== undefined && v !== null && (typeof v !== 'string' || v.trim() !== '')
+        ).length
+      });
+
+      console.log('Calling MCP service executeTool with:', {
+        toolName: this.selectedTool.name,
+        processedParams: processedParams,
+        paramCount: Object.keys(processedParams).length,
+        url: '/api',
+        method: 'POST',
+        contentType: 'application/json'
+      });
+
       const result = await this.mcpService.executeTool(this.selectedTool.name, processedParams);
+
+      console.log('=== TOOL EXECUTION SUCCESSFUL ===');
+      console.log('Tool:', this.selectedTool?.name);
+      console.log('Result Type:', typeof result);
+
+      if (result !== undefined && result !== null) {
+        const resultJson = JSON.stringify(result);
+        console.log('Result Size (bytes):', resultJson.length);
+        console.log('Result Preview:', resultJson.substring(0, 500) + (resultJson.length > 500 ? '...' : ''));
+        console.log('Result Keys:', typeof result === 'object' ? Object.keys(result || {}) : 'Not an object');
+      } else {
+        console.log('Result is undefined or null');
+      }
+
       clearTimeout(executionTimeout);
       this.executionResult = { success: true, data: result };
     } catch (error: any) {
+      console.error('=== TOOL EXECUTION FAILED ===');
+      console.error('Tool:', this.selectedTool?.name);
+      console.error('Error Message:', error?.message);
+      console.error('Error Status:', error?.status);
+      console.error('Error Status Text:', error?.statusText);
+      console.error('Error Stack:', error?.stack);
+      console.error('Error Details:', {
+        name: error?.name,
+        message: error?.message,
+        status: error?.status,
+        statusText: error?.statusText,
+        url: error?.url,
+        data: error?.data || error?.error,
+        headers: error?.headers
+      });
+
       clearTimeout(executionTimeout);
       this.executionResult = {
         success: false,
         error: error?.message || 'Unknown error occurred'
       };
     } finally {
+      console.log('Tool execution completed:', {
+        toolName: this.selectedTool?.name,
+        success: this.executionResult?.success,
+        hasResult: !!this.executionResult
+      });
       this.executing = false;
     }
   }
@@ -251,8 +388,8 @@ export class AppComponent implements OnInit, OnDestroy {
 
   // Use cached parameters from the selected tool
   getToolParameters(tool: Tool): any[] {
-    if (this.selectedTool === tool && this.cachedToolParameters.length > 0) {
-      return this.cachedToolParameters;
+    if (this.selectedTool === tool && this.cachedToolParameters?.length > 0) {
+      return this.cachedToolParameters || [];
     }
     return this.computeToolParameters(tool);
   }
@@ -274,8 +411,47 @@ export class AppComponent implements OnInit, OnDestroy {
     return tool.inputSchema?.required?.includes(paramName) || false;
   }
 
+  /**
+   * Get count of required parameters for current tool
+   */
+  getRequiredParameterCount(): number {
+    if (!this.selectedTool?.inputSchema?.required) return 0;
+    return this.selectedTool.inputSchema.required.length;
+  }
+
+  /**
+   * Get count of optional parameters for current tool
+   */
+  getOptionalParameterCount(): number {
+    const totalParams = this.cachedToolParameters?.length || 0;
+    const requiredParams = this.getRequiredParameterCount();
+    return Math.max(0, totalParams - requiredParams);
+  }
+
   async refreshTools() {
     await this.loadTools();
+  }
+
+  /**
+   * Clear all filter preferences and reset to defaults
+   */
+  clearAllFilters() {
+    this.selectedAgent = '';
+    this.selectedCategory = '';
+    this.searchTerm = '';
+    this.showSchemas = false;
+
+    this.filterTools();
+    this.clearFilterPreferences();
+
+    console.log('All filters cleared and preferences removed');
+  }
+
+  /**
+   * Check if any filters are currently active
+   */
+  hasActiveFilters(): boolean {
+    return !!(this.selectedAgent || this.selectedCategory || this.searchTerm || this.showSchemas);
   }
 
   onSearchInput() {
@@ -285,11 +461,76 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     this.searchTimeout = setTimeout(() => {
       this.filterTools();
+      this.saveFilterPreferences();
     }, 300);
   }
 
   onFilterChange() {
     this.filterTools();
+    this.saveFilterPreferences();
+  }
+
+  /**
+   * Save current filter preferences to localStorage
+   */
+  private saveFilterPreferences() {
+    try {
+      const preferences = {
+        selectedAgent: this.selectedAgent,
+        selectedCategory: this.selectedCategory,
+        showSchemas: this.showSchemas,
+        searchTerm: this.searchTerm,
+        timestamp: new Date().toISOString()
+      };
+
+      localStorage.setItem('windchill-mcp-filter-preferences', JSON.stringify(preferences));
+      console.log('Filter preferences saved:', preferences);
+    } catch (error) {
+      console.warn('Failed to save filter preferences:', error);
+    }
+  }
+
+  /**
+   * Load filter preferences from localStorage
+   */
+  private loadFilterPreferences() {
+    try {
+      const saved = localStorage.getItem('windchill-mcp-filter-preferences');
+      if (saved) {
+        const preferences = JSON.parse(saved);
+        console.log('Loading filter preferences:', preferences);
+
+        // Only restore if preferences are not too old (24 hours)
+        const saveTime = new Date(preferences.timestamp);
+        const now = new Date();
+        const hoursDiff = (now.getTime() - saveTime.getTime()) / (1000 * 60 * 60);
+
+        if (hoursDiff < 24) {
+          this.selectedAgent = preferences.selectedAgent || '';
+          this.selectedCategory = preferences.selectedCategory || '';
+          this.showSchemas = preferences.showSchemas || false;
+          this.searchTerm = preferences.searchTerm || '';
+        } else {
+          console.log('Filter preferences expired, using defaults');
+          this.clearFilterPreferences();
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load filter preferences:', error);
+      this.clearFilterPreferences();
+    }
+  }
+
+  /**
+   * Clear filter preferences from localStorage
+   */
+  private clearFilterPreferences() {
+    try {
+      localStorage.removeItem('windchill-mcp-filter-preferences');
+      console.log('Filter preferences cleared');
+    } catch (error) {
+      console.warn('Failed to clear filter preferences:', error);
+    }
   }
 
   // Safe JSON display to prevent circular reference issues and performance problems

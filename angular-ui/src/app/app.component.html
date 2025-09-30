@@ -62,6 +62,18 @@
               </div>
             </div>
           </div>
+          <div class="row g-3 mt-2">
+            <div class="col-12">
+              <div class="d-flex justify-content-between align-items-center">
+                <small class="text-muted" *ngIf="hasActiveFilters()">
+                  🔍 Filters active: <span *ngIf="selectedAgent">Agent: {{selectedAgent}}</span><span *ngIf="selectedCategory"> • Category: {{selectedCategory}}</span><span *ngIf="searchTerm"> • Search: "{{searchTerm}}"</span>
+                </small>
+                <button class="btn btn-outline-secondary btn-sm" (click)="clearAllFilters()" *ngIf="hasActiveFilters()" title="Clear all filters and reset to defaults">
+                  🗑️ Clear Filters
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -91,7 +103,8 @@
           <div class="d-flex gap-2">
             <button class="btn btn-primary btn-sm flex-fill"
                     (click)="selectTool(tool)"
-                    [disabled]="loading">
+                    [disabled]="loading"
+                    title="Open parameter form to execute this tool">
               ▶️ Execute
             </button>
           </div>
@@ -141,24 +154,39 @@
         <!-- Parameter Form -->
         <form (ngSubmit)="executeTool($event)" #toolForm="ngForm" class="parameter-form">
           <!-- No parameters message -->
-          <div *ngIf="getToolParameters(selectedTool).length === 0" class="no-parameters">
+          <div *ngIf="(getToolParameters(selectedTool)?.length || 0) === 0" class="no-parameters">
             <p class="text-muted">
               ℹ️ This tool doesn't require any parameters. Click "Execute Tool" to run it.
             </p>
           </div>
 
+          <!-- Instructions for tools with parameters -->
+          <div *ngIf="(getToolParameters(selectedTool)?.length || 0) > 0" class="parameters-instructions">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <p class="text-muted small mb-0">
+                💡 Enter the parameters below and click "Execute Tool" to run the tool.
+              </p>
+              <div class="parameter-summary">
+                <span class="badge bg-primary me-2">{{getRequiredParameterCount()}} Required</span>
+                <span class="badge bg-secondary">{{getOptionalParameterCount()}} Optional</span>
+              </div>
+            </div>
+          </div>
+
           <!-- Parameters -->
-          <div *ngFor="let param of getToolParameters(selectedTool)" class="form-group">
-            <label class="form-label">
+          <div *ngFor="let param of (getToolParameters(selectedTool) || [])" class="form-group" [class.required-param]="isRequired(selectedTool, param.name)">
+            <label class="form-label" [class.required-label]="isRequired(selectedTool, param.name)">
               {{param.name}}
               <span class="param-type">({{param.type}})</span>
-              <span class="required" *ngIf="isRequired(selectedTool, param.name)">*</span>
+              <span class="required-indicator" *ngIf="isRequired(selectedTool, param.name)">*</span>
+              <span class="optional-indicator" *ngIf="!isRequired(selectedTool, param.name)">optional</span>
             </label>
 
             <!-- String input -->
             <input *ngIf="param.type === 'string'"
                    type="text"
                    class="form-input"
+                   [id]="'param_' + param.name"
                    [name]="param.name"
                    [(ngModel)]="parameters[param.name]"
                    [required]="isRequired(selectedTool, param.name)"
@@ -168,6 +196,7 @@
             <input *ngIf="param.type === 'number'"
                    type="number"
                    class="form-input"
+                   [id]="'param_' + param.name"
                    [name]="param.name"
                    [(ngModel)]="parameters[param.name]"
                    [required]="isRequired(selectedTool, param.name)"
@@ -177,6 +206,7 @@
             <div *ngIf="param.type === 'boolean'" class="checkbox-group">
               <label class="checkbox-label">
                 <input type="checkbox"
+                       [id]="'param_' + param.name"
                        [name]="param.name"
                        [(ngModel)]="parameters[param.name]">
                 <span class="checkmark"></span>
@@ -188,6 +218,7 @@
             <textarea *ngIf="param.type === 'array'"
                      class="form-textarea"
                      rows="3"
+                     [id]="'param_' + param.name"
                      [name]="param.name"
                      [(ngModel)]="parameters[param.name]"
                      placeholder='Enter JSON array, e.g., ["item1", "item2"]'
@@ -202,7 +233,6 @@
                      placeholder="Enter JSON object, e.g., {&quot;key&quot;: &quot;value&quot;}"
                      [required]="isRequired(selectedTool, param.name)"></textarea>
 
-            <div class="form-help" *ngIf="param.description">{{param.description}}</div>
           </div>
 
           <div class="button-group">

@@ -61,8 +61,15 @@ export class McpService {
         )
       ]) as McpResponse;
 
+      console.log('MCP protocol response:', response);
+
       if (response.error) {
         throw new Error(`MCP Error ${response.error.code}: ${response.error.message}`);
+      }
+
+      if (!response.result) {
+        console.warn('MCP response.result is undefined, falling back to direct HTTP');
+        throw new Error('Invalid MCP response: result is undefined');
       }
 
       return response.result;
@@ -78,6 +85,7 @@ export class McpService {
    */
   private async getToolsListDirect(): Promise<ToolsListResponse> {
     try {
+      console.log('Attempting direct HTTP GET to /api/tools');
       const response = await Promise.race([
         firstValueFrom(
           this.http.get<ToolsListResponse>(`${this.baseUrl}/tools`)
@@ -87,8 +95,15 @@ export class McpService {
         )
       ]) as ToolsListResponse;
 
+      console.log('Direct HTTP response:', response);
+
+      if (!response || !response.tools) {
+        throw new Error('Invalid response format from server');
+      }
+
       return response;
     } catch (error: any) {
+      console.error('Direct HTTP request failed:', error);
       throw new Error(`Failed to load tools: ${error?.message || 'Server unreachable'}`);
     }
   }
@@ -97,6 +112,11 @@ export class McpService {
    * Execute a tool using MCP JSON-RPC 2.0 protocol
    */
   async executeTool(toolName: string, parameters: any): Promise<any> {
+    console.log('=== MCP Service executeTool START ===');
+    console.log('Tool:', toolName);
+    console.log('Parameters:', parameters);
+    console.log('Parameter types:', Object.entries(parameters).map(([k, v]) => ({ [k]: typeof v })));
+
     const request: McpRequest = {
       jsonrpc: '2.0',
       id: this.generateId(),
@@ -106,6 +126,13 @@ export class McpService {
         arguments: parameters
       }
     };
+
+    console.log('MCP JSON-RPC request:', {
+      url: this.baseUrl,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: request
+    });
 
     try {
       const response = await Promise.race([
@@ -121,14 +148,56 @@ export class McpService {
         )
       ]) as McpResponse;
 
+      console.log('=== RAW MCP RESPONSE DEBUG ===');
+      console.log('Full response object:', response);
+      console.log('Response keys:', Object.keys(response || {}));
+      console.log('Response.jsonrpc:', (response as any)?.jsonrpc);
+      console.log('Response.id:', response?.id);
+      console.log('Response.result:', response?.result);
+      console.log('Response.error:', response?.error);
+
+      console.log('MCP response received:', {
+        id: response.id,
+        hasResult: !!response.result,
+        hasError: !!response.error,
+        resultType: typeof response.result
+      });
+
       if (response.error) {
+        console.error('MCP error response:', response.error);
         throw new Error(`MCP Error ${response.error.code}: ${response.error.message}`);
       }
 
+      // Unwrap MCP JSON-RPC response content
+      if (response.result?.content && Array.isArray(response.result.content) && response.result.content.length > 0) {
+        const content = response.result.content[0];
+        if (content.type === 'text' && content.text) {
+          try {
+            // Parse the JSON string in the text field to get the actual result
+            const actualResult = JSON.parse(content.text);
+            console.log('=== MCP Service executeTool SUCCESS ===');
+            console.log('Unwrapped result type:', typeof actualResult);
+            return actualResult;
+          } catch (parseError) {
+            // If not valid JSON, return the text as-is
+            console.log('=== MCP Service executeTool SUCCESS (text response) ===');
+            return content.text;
+          }
+        }
+      }
+
+      console.log('=== MCP Service executeTool SUCCESS ===');
       return response.result;
     } catch (error: any) {
+      console.log('=== MCP protocol failed, trying direct HTTP ===');
+      console.log('Error details:', {
+        message: error.message,
+        status: error.status,
+        statusText: error.statusText,
+        url: error.url
+      });
+
       // Fallback to direct HTTP request if MCP protocol fails
-      console.warn('MCP protocol failed, falling back to direct HTTP:', error.message);
       return this.executeToolDirect(toolName, parameters);
     }
   }
@@ -138,6 +207,11 @@ export class McpService {
    */
   private async executeToolDirect(toolName: string, parameters: any): Promise<any> {
     try {
+      console.log('=== Direct HTTP fallback execution ===');
+      console.log('Tool:', toolName);
+      console.log('Parameters:', parameters);
+      console.log('Direct HTTP URL:', `${this.baseUrl}/tools/${toolName}`);
+
       const response = await Promise.race([
         firstValueFrom(
           this.http.post<any>(`${this.baseUrl}/tools/${toolName}`, parameters, {
@@ -151,8 +225,22 @@ export class McpService {
         )
       ]) as any;
 
+      console.log('=== Direct HTTP response received ===');
+      console.log('Response status:', response?.status);
+      console.log('Response data type:', typeof response);
+      console.log('Response data:', response);
+
       return response;
     } catch (error: any) {
+      console.error('=== Direct HTTP execution failed ===');
+      console.error('Error details:', {
+        message: error.message,
+        status: error.status,
+        statusText: error.statusText,
+        url: error.url,
+        data: error.data || error.error
+      });
+
       if (error?.status === 404) {
         throw new Error(`Tool '${toolName}' not found on server`);
       }

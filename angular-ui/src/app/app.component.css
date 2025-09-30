@@ -116,6 +116,46 @@
   margin-left: 0.25rem;
 }
 
+/* Enhanced Required Parameter Styling */
+.required-param {
+  border-left: 4px solid #dc3545;
+  background-color: #fff5f5;
+  padding: 1rem;
+  margin: 0.5rem 0;
+  border-radius: 0 4px 4px 0;
+}
+
+.required-label {
+  font-weight: 600 !important;
+  color: #dc3545 !important;
+}
+
+.required-indicator {
+  background-color: #dc3545;
+  color: white;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  margin-left: 0.5rem;
+}
+
+.optional-indicator {
+  color: #6c757d;
+  font-size: 0.8rem;
+  font-style: italic;
+  margin-left: 0.5rem;
+}
+
+.parameter-summary {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.parameter-summary .badge {
+  font-size: 0.75rem;
+}
+
 .form-input, .form-textarea {
   width: 100%;
   padding: 0.5rem;
