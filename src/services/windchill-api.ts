@@ -38,6 +38,13 @@ export class WindchillAPIService {
           authMethod: 'Basic Auth'
         });
 
+        // Construct and log the complete URL
+        const completeUrl = `${config.baseURL}${config.url}`;
+        apiLogger.debug('Complete URL', {
+          requestId,
+          completeUrl
+        });
+
         // Use Basic Authentication directly for OData endpoints
         const auth = Buffer.from(
           `${windchillConfig.username}:${windchillConfig.password}`

@@ -229,11 +229,11 @@ export class DocumentAgent extends BaseAgent {
 
         /**
          * Add document name filter if provided.
-         * Uses OData syntax: "$filter=Name eq 'User Manual'"
+         * Uses OData syntax: "$filter=contains(Name,'User Manual')" for partial matching
          * Note: If both number and name are provided, both filters are applied (AND operation).
          */
         if (params.name) {
-          queryParams.append("$filter", `Name eq '${params.name}'`);
+          queryParams.append("$filter", `contains(Name,'${params.name}')`);
         }
 
         /**
@@ -1396,7 +1396,7 @@ export class DocumentAgent extends BaseAgent {
           const searchParams = new URLSearchParams();
 
           if (params.filter.number) searchParams.append("$filter", `Number eq '${params.filter.number}'`);
-          if (params.filter.name) searchParams.append("$filter", `Name eq '${params.filter.name}'`);
+          if (params.filter.name) searchParams.append("$filter", `contains(Name,'${params.filter.name}')`);
           if (params.filter.type) searchParams.append("$filter", `Type eq '${params.filter.type}'`);
 
           const searchResponse = await this.api.get(

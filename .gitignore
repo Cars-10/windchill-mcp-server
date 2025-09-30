@@ -1,11 +1,15 @@
 # Dependencies
 node_modules/*
-angular-ui/node_modules/*
 .claude
+*.pack
+
 
 # Build outputs
 dist/
 angular-ui/dist/
+angular-ui/node_modules/
+angular-ui/.angular/
+angular-ui/.angular/cache/
 
 # TypeScript build cache
 *.tsbuildinfo

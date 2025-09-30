@@ -5,13 +5,13 @@
       <div class="d-flex justify-content-between align-items-center">
         <div>
           <h1 class="mb-1">
-            🔧 Windchill MCP Tools Interface
+            🔧 Windchill MCP Interface
           </h1>
           <p class="text-muted mb-0">Model Context Protocol Tools for PTC Windchill</p>
         </div>
         <div class="d-flex align-items-center">
-          <span class="badge bg-success me-2" *ngIf="serverStatus === 'connected'">✅ Server Connected</span>
-          <span class="badge bg-danger me-2" *ngIf="serverStatus === 'disconnected'">❌ Server Disconnected</span>
+          <span class="badge bg-success me-2" *ngIf="serverStatus === 'connected'">✅ {{ serverUrl }} Connected</span>
+          <span class="badge bg-danger me-2" *ngIf="serverStatus === 'disconnected'">❌ {{ serverUrl }} Disconnected</span>
           <button class="btn btn-outline-primary btn-sm" (click)="refreshTools()" [disabled]="loading">
             <span *ngIf="loading">🔄</span>
             <span *ngIf="!loading">🔄</span>

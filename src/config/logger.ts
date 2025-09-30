@@ -9,9 +9,24 @@ if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
 
+// Timezone formatter for Berlin time (Europe/Berlin)
+const berlinTimezone = () => {
+  return new Date().toLocaleString('en-US', {
+    timeZone: 'Europe/Berlin',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    fractionalSecondDigits: 3,
+    hour12: false
+  }).replace(/(\d+)\/(\d+)\/(\d+),\s(\d+):(\d+):(\d+)\.(\d+)/, '$3-$1-$2 $4:$5:$6.$7');
+};
+
 // Custom format for log messages
 const logFormat = winston.format.combine(
-  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss.SSS' }),
+  winston.format.timestamp({ format: berlinTimezone }),
   winston.format.errors({ stack: true }),
   winston.format.json(),
   winston.format.printf(({ timestamp, level, message, stack, ...meta }) => {
@@ -34,7 +49,17 @@ const logFormat = winston.format.combine(
 // Console format (simpler for development)
 const consoleFormat = winston.format.combine(
   winston.format.colorize(),
-  winston.format.timestamp({ format: 'HH:mm:ss' }),
+  winston.format.timestamp({
+    format: () => {
+      return new Date().toLocaleString('en-US', {
+        timeZone: 'Europe/Berlin',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+    }
+  }),
   winston.format.printf(({ timestamp, level, message, ...meta }) => {
     let logMessage = `${timestamp} ${level}: ${message}`;
     if (Object.keys(meta).length > 0) {

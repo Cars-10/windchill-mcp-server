@@ -22,6 +22,7 @@ export class AppComponent implements OnInit, OnDestroy {
   showSchemas = false;
   loading = false;
   serverStatus = 'disconnected';
+  serverUrl = window.location.protocol + '//' + window.location.hostname + ':3000';
 
   selectedTool: Tool | null = null;
   showExecutionModal = false;
@@ -52,6 +53,19 @@ export class AppComponent implements OnInit, OnDestroy {
     this.serverStatus = 'disconnected';
 
     try {
+      // First, get server info to get the actual MCP server URL
+      try {
+        const serverInfo = await this.mcpService.getServerInfo();
+        if (serverInfo) {
+          // The MCP server is on port 3000, construct the URL
+          const baseUrl = window.location.protocol + '//' + window.location.hostname + ':3000';
+          this.serverUrl = baseUrl;
+          console.log('MCP Server URL:', this.serverUrl);
+        }
+      } catch (infoError) {
+        console.warn('Could not fetch server info, using default URL');
+      }
+
       const response = await this.mcpService.getToolsList();
       console.log('Tools response received:', response);
 
