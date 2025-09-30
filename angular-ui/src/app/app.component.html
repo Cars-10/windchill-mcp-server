@@ -81,32 +81,28 @@
 
   <!-- Tools Grid -->
   <div class="row" *ngIf="filteredTools.length > 0; else noTools">
-    <div class="col-md-6 col-lg-4 mb-4" *ngFor="let tool of filteredTools">
+    <div class="col-md-6 col-lg-3 mb-3" *ngFor="let tool of filteredTools">
       <div class="card tool-card h-100" [class.border-primary]="selectedTool?.name === tool.name">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-start mb-2">
-            <h6 class="card-title mb-0">{{tool.name}}</h6>
-            <span class="badge bg-secondary agent-badge">{{tool.agent}}</span>
-          </div>
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="badge bg-secondary agent-badge">{{tool.agent}}</span>
+          <button class="btn btn-primary btn-sm execute-btn"
+                  (click)="selectTool(tool)"
+                  [disabled]="loading"
+                  title="Open parameter form to execute this tool">
+            ▶️ Execute
+          </button>
+        </div>
+        <div class="card-body p-2">
+          <h6 class="card-title mb-2">{{tool.name}}</h6>
+          <p class="card-text text-muted small mb-2">{{tool.description}}</p>
 
-          <p class="card-text text-muted small">{{tool.description}}</p>
-
-          <div class="mb-3" *ngIf="showSchemas && tool.inputSchema">
+          <div *ngIf="showSchemas && tool.inputSchema" class="small">
             <small class="text-muted">Parameters:</small>
-            <div class="small">
+            <div class="params-list">
               <div *ngFor="let param of getParameterNames(tool.inputSchema)">
-                <code>{{param}}</code>
+                <code class="param-code">{{param}}</code>
               </div>
             </div>
-          </div>
-
-          <div class="d-flex gap-2">
-            <button class="btn btn-primary btn-sm flex-fill"
-                    (click)="selectTool(tool)"
-                    [disabled]="loading"
-                    title="Open parameter form to execute this tool">
-              ▶️ Execute
-            </button>
           </div>
         </div>
       </div>
