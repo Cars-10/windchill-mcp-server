@@ -4,6 +4,8 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 import http from 'http';
 import dotenv from 'dotenv';
 import { logger } from './config/logger.js';
+import { serverManager } from './config/windchill-servers.js';
+import { windchillAPI } from './services/windchill-api.js';
 import { PartAgent } from './agents/part-agent.js';
 import { ChangeAgent } from './agents/change-agent.js';
 import { DocumentAgent } from './agents/document-agent.js';
@@ -162,10 +164,16 @@ const healthServer = http.createServer((req, res) => {
       agents: Object.keys(agents).length,
       tools: allTools.length
     }));
-  } else if (req.url === '/') {
-    logger.debug('Server info requested', { requestId, ip: req.socket.remoteAddress });
+  } else if (req.url === '/' || req.url === '/api/info') {
+    logger.debug('Server info requested', { requestId, ip: req.socket.remoteAddress, url: req.url });
 
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    const currentServer = serverManager.getActiveServer();
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    });
     res.end(JSON.stringify({
       name: 'Windchill MCP Server',
       version: process.env.MCP_SERVER_VERSION || '1.0.0',
@@ -173,7 +181,12 @@ const healthServer = http.createServer((req, res) => {
       agents: Object.keys(agents),
       tools: allTools.length,
       uptime: process.uptime(),
-      memory: process.memoryUsage()
+      memory: process.memoryUsage(),
+      windchillServer: {
+        id: currentServer.id,
+        name: currentServer.name,
+        url: currentServer.baseURL
+      }
     }));
   } else if (req.url === '/tools' || req.url === '/api' || req.url === '/api/tools') {
     logger.debug('Tools list requested via HTTP', { requestId, ip: req.socket.remoteAddress, url: req.url, method: req.method });
@@ -453,6 +466,121 @@ const healthServer = http.createServer((req, res) => {
         res.end(JSON.stringify({
           error: 'Invalid request',
           message: error.message
+        }));
+      }
+    });
+  } else if (req.url === '/api/servers') {
+    // GET /api/servers - List all available Windchill servers
+    logger.debug('Available servers list requested', { requestId, ip: req.socket.remoteAddress });
+
+    const servers = serverManager.getAllServers().map(server => ({
+      id: server.id,
+      name: server.name,
+      url: server.baseURL,
+      username: server.username,
+      isActive: server.id === serverManager.getActiveServerId()
+    }));
+
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    });
+    res.end(JSON.stringify({ servers }));
+  } else if (req.url === '/api/servers/current') {
+    // GET /api/servers/current - Get currently active server
+    logger.debug('Current server info requested', { requestId, ip: req.socket.remoteAddress });
+
+    const currentServer = serverManager.getActiveServer();
+
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    });
+    res.end(JSON.stringify({
+      id: currentServer.id,
+      name: currentServer.name,
+      url: currentServer.baseURL,
+      username: currentServer.username
+    }));
+  } else if (req.url === '/api/servers/switch') {
+    // POST /api/servers/switch - Switch to different server
+    logger.debug('Server switch requested', { requestId, ip: req.socket.remoteAddress });
+
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+      try {
+        const { serverId } = JSON.parse(body);
+
+        if (!serverId || typeof serverId !== 'number') {
+          res.writeHead(400, {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          });
+          res.end(JSON.stringify({
+            error: 'Invalid request',
+            message: 'serverId is required and must be a number'
+          }));
+          return;
+        }
+
+        if (!serverManager.hasServer(serverId)) {
+          res.writeHead(404, {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          });
+          res.end(JSON.stringify({
+            error: 'Server not found',
+            message: `Server with ID ${serverId} not found`
+          }));
+          return;
+        }
+
+        logger.info('Switching Windchill server', {
+          requestId,
+          fromServer: serverManager.getActiveServerId(),
+          toServer: serverId,
+          ip: req.socket.remoteAddress
+        });
+
+        // Update the WindchillAPIService configuration
+        windchillAPI.updateServerConfig(serverId);
+
+        const newServer = serverManager.getActiveServer();
+
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type'
+        });
+        res.end(JSON.stringify({
+          success: true,
+          message: `Switched to ${newServer.name}`,
+          server: {
+            id: newServer.id,
+            name: newServer.name,
+            url: newServer.baseURL,
+            username: newServer.username
+          }
+        }));
+
+      } catch (error: any) {
+        logger.error('Error switching servers', { requestId, error: error.message, stack: error.stack });
+        res.writeHead(500, {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        });
+        res.end(JSON.stringify({
+          error: 'Server switch failed',
+          message: error.message || 'Unknown error occurred'
         }));
       }
     });

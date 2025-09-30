@@ -26,13 +26,22 @@ The codebase follows an agent-based architecture where each domain is handled by
 
 Each agent extends BaseAgent and defines its own tools with specific input schemas and handlers.
 
+### Windchill Server Management
+- **WindchillServerManager** (`src/config/windchill-servers.ts`): Manages multiple Windchill server configurations
+- Loads all numbered server configurations from environment variables (`WINDCHILL_*_1`, `WINDCHILL_*_2`, etc.)
+- Tracks active server and provides methods to switch between servers
+- Supports up to 10 configured servers (can be extended)
+- Backward compatible with single-server legacy configuration
+
 ### Windchill API Integration
 - **WindchillAPIService** (`src/services/windchill-api.ts`): Centralized service for Windchill REST API communication
 - Uses Basic Authentication (no session-based auth or CSRF tokens)
 - Implements comprehensive HTTP methods (GET, POST, PUT, PATCH, DELETE)
+- **Dynamic Configuration**: Supports switching servers at runtime via `updateServerConfig(serverId)`
 - Enhanced support for multipart form data uploads
 - Request/response interceptors for logging and error handling
 - Each request gets a unique ID for traceability
+- Automatically uses credentials from currently active server
 
 ### MCP Server Architecture
 - **src/index.ts**: Main entry point that:
@@ -95,17 +104,57 @@ npm test  # Returns error - tests need to be implemented
 
 ## Environment Configuration
 
-The server requires these environment variables in `docker/.env` (create from `docker/.env.example`):
+### Multi-Server Configuration
 
+The server supports connecting to multiple Windchill servers with dynamic switching through the Angular UI. Configure multiple servers in `docker/.env` using numbered suffixes:
+
+```bash
+# Windchill Server 1 (Production)
+WINDCHILL_URL_1=http://plm-prod.windchill.com/Windchill
+WINDCHILL_USER_1=wcadmin
+WINDCHILL_PASSWORD_1=wcadmin
+WINDCHILL_NAME_1=Production PLM
+
+# Windchill Server 2 (Development)
+WINDCHILL_URL_2=http://plm-dev.windchill.com/Windchill
+WINDCHILL_USER_2=wcadmin
+WINDCHILL_PASSWORD_2=wcadmin
+WINDCHILL_NAME_2=Development PLM
+
+# Windchill Server 3 (Test)
+WINDCHILL_URL_3=http://plm-test.windchill.com/Windchill
+WINDCHILL_USER_3=wcadmin
+WINDCHILL_PASSWORD_3=wcadmin
+WINDCHILL_NAME_3=Test PLM
+
+# Default active server (1, 2, 3, etc.)
+WINDCHILL_ACTIVE_SERVER=1
 ```
+
+**Backward Compatibility:** If no numbered servers are configured, the system will use legacy single-server variables:
+```bash
 WINDCHILL_URL=http://plm.windchill.com/Windchill
 WINDCHILL_USER=wcadmin
 WINDCHILL_PASSWORD=wcadmin
+```
+
+**Other Configuration:**
+```bash
 MCP_SERVER_NAME=windchill-mcp
 MCP_SERVER_VERSION=1.0.0
 MCP_SERVER_PORT=3000
 LOG_LEVEL=info
 ```
+
+### Server Management Endpoints
+
+The MCP server exposes HTTP endpoints for managing Windchill server connections:
+
+- **GET /api/servers** - List all configured Windchill servers
+- **GET /api/servers/current** - Get currently active Windchill server
+- **POST /api/servers/switch** - Switch to a different Windchill server (body: `{serverId: number}`)
+
+The Angular UI provides a dropdown to select and switch between configured servers dynamically.
 
 ## Key Dependencies
 

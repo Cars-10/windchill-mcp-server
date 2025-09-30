@@ -1,13 +1,30 @@
-import dotenv from 'dotenv';
-dotenv.config();
+import { serverManager } from './windchill-servers.js';
 
-export const windchillConfig = {
-  baseURL: process.env.WINDCHILL_URL || 'http://plm.windchill.com/Windchill',
-  username: process.env.WINDCHILL_USER || '',
-  password: process.env.WINDCHILL_PASSWORD || '',
-  timeout: 30000,
-  apiPath: '/servlet/odata',
-};
+/**
+ * Get current Windchill configuration from the active server
+ * This function provides backward compatibility while using the new server manager
+ */
+export function getWindchillConfig() {
+  const activeServer = serverManager.getActiveServer();
+  return {
+    baseURL: activeServer.baseURL,
+    username: activeServer.username,
+    password: activeServer.password,
+    timeout: activeServer.timeout,
+    apiPath: activeServer.apiPath,
+  };
+}
+
+/**
+ * Legacy windchillConfig export for backward compatibility
+ * This will always reflect the currently active server
+ */
+export const windchillConfig = new Proxy({} as any, {
+  get(target, prop) {
+    const config = getWindchillConfig();
+    return config[prop as keyof typeof config];
+  }
+});
 
 export const apiEndpoints = {
   parts: '/ProdMgmt/Parts',

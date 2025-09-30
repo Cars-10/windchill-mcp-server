@@ -1,26 +1,71 @@
 import axios from "axios";
-import { windchillConfig } from "../config/windchill.js";
+import { getWindchillConfig } from "../config/windchill.js";
+import { serverManager, WindchillServerConfig } from "../config/windchill-servers.js";
 import { apiLogger, logger } from "../config/logger.js";
 
 export class WindchillAPIService {
   private client: any;
+  private currentConfig: ReturnType<typeof getWindchillConfig>;
 
   constructor() {
+    this.currentConfig = getWindchillConfig();
+
     logger.info('Initializing WindchillAPIService', {
-      baseURL: windchillConfig.baseURL,
-      timeout: windchillConfig.timeout,
-      username: windchillConfig.username
+      baseURL: this.currentConfig.baseURL,
+      timeout: this.currentConfig.timeout,
+      username: this.currentConfig.username,
+      serverId: serverManager.getActiveServerId()
     });
 
+    this.createClient();
+    this.setupInterceptors();
+  }
+
+  /**
+   * Create or recreate the axios client with current configuration
+   */
+  private createClient() {
+    this.currentConfig = getWindchillConfig();
+
     this.client = (axios as any).create({
-      baseURL: windchillConfig.baseURL + windchillConfig.apiPath,
-      timeout: windchillConfig.timeout,
+      baseURL: this.currentConfig.baseURL + this.currentConfig.apiPath,
+      timeout: this.currentConfig.timeout,
       headers: {
         "Content-Type": "application/json",
       },
     });
+  }
 
+  /**
+   * Update the service to use a different server configuration
+   */
+  updateServerConfig(serverId: number): void {
+    logger.info('Updating WindchillAPIService configuration', {
+      previousServerId: serverManager.getActiveServerId(),
+      newServerId: serverId
+    });
+
+    // Switch server in server manager
+    const newServer = serverManager.switchServer(serverId);
+
+    // Recreate client with new configuration
+    this.createClient();
+
+    // Re-setup interceptors for new client
     this.setupInterceptors();
+
+    logger.info('WindchillAPIService configuration updated successfully', {
+      serverId: newServer.id,
+      serverName: newServer.name,
+      baseURL: newServer.baseURL
+    });
+  }
+
+  /**
+   * Get current server information
+   */
+  getCurrentServer(): WindchillServerConfig {
+    return serverManager.getActiveServer();
   }
 
   private setupInterceptors() {
@@ -47,7 +92,7 @@ export class WindchillAPIService {
 
         // Use Basic Authentication directly for OData endpoints
         const auth = Buffer.from(
-          `${windchillConfig.username}:${windchillConfig.password}`
+          `${this.currentConfig.username}:${this.currentConfig.password}`
         ).toString("base64");
         config.headers["Authorization"] = `Basic ${auth}`;
 

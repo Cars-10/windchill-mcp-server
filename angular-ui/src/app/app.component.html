@@ -9,12 +9,39 @@
           </h1>
           <p class="text-muted mb-0">Model Context Protocol Tools for PTC Windchill</p>
         </div>
-        <div class="d-flex align-items-center">
-          <span class="badge bg-success me-2" *ngIf="serverStatus === 'connected'">✅ {{ serverUrl }} Connected</span>
-          <span class="badge bg-danger me-2" *ngIf="serverStatus === 'disconnected'">❌ {{ serverUrl }} Disconnected</span>
-          <button class="btn btn-outline-primary btn-sm" (click)="refreshTools()" [disabled]="loading">
-            <span *ngIf="loading">🔄</span>
-            <span *ngIf="!loading">🔄</span>
+        <div class="d-flex align-items-center gap-2">
+          <!-- Windchill Server Selector - Always show if servers are available -->
+          <div class="d-flex align-items-center" *ngIf="availableServers.length > 0">
+            <label class="text-muted me-2 mb-0" style="font-size: 0.875rem; white-space: nowrap;">Windchill Server:</label>
+            <select
+              class="form-select form-select-sm"
+              style="width: auto; min-width: 200px;"
+              [(ngModel)]="selectedServerId"
+              (change)="onServerChange()"
+              [disabled]="switchingServer || loading || availableServers.length <= 1">
+              <option *ngFor="let server of availableServers" [value]="server.id">
+                {{ server.name }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Server Status Badge -->
+          <span class="badge bg-success me-2" *ngIf="serverStatus === 'connected' && currentServer">
+            ✅ {{ currentServer.name }} Connected
+          </span>
+          <span class="badge bg-danger me-2" *ngIf="serverStatus === 'disconnected'">
+            ❌ {{ currentServer?.name || 'Server' }} Disconnected
+          </span>
+
+          <!-- Switching Indicator -->
+          <span class="badge bg-warning text-dark me-2" *ngIf="switchingServer">
+            ⏳ Switching Server...
+          </span>
+
+          <!-- Refresh Button -->
+          <button class="btn btn-outline-primary btn-sm" (click)="refreshTools()" [disabled]="loading || switchingServer">
+            <span *ngIf="loading || switchingServer">🔄</span>
+            <span *ngIf="!loading && !switchingServer">🔄</span>
             Refresh
           </button>
         </div>

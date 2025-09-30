@@ -272,7 +272,34 @@ export class McpService {
    */
   async getServerInfo(): Promise<any> {
     return firstValueFrom(
-      this.http.get(`${this.baseUrl}/`)
+      this.http.get(`${this.baseUrl}/info`)
+    );
+  }
+
+  /**
+   * Get list of all available Windchill servers
+   */
+  async getAvailableServers(): Promise<any> {
+    return firstValueFrom(
+      this.http.get(`${this.baseUrl}/servers`)
+    );
+  }
+
+  /**
+   * Get currently active Windchill server
+   */
+  async getCurrentWindchillServer(): Promise<any> {
+    return firstValueFrom(
+      this.http.get(`${this.baseUrl}/servers/current`)
+    );
+  }
+
+  /**
+   * Switch to a different Windchill server
+   */
+  async switchWindchillServer(serverId: number): Promise<any> {
+    return firstValueFrom(
+      this.http.post(`${this.baseUrl}/servers/switch`, { serverId })
     );
   }
 }

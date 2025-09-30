@@ -1,8 +1,9 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Tool } from './models/tool.model';
+import { WindchillServer } from './models/windchill-server.model';
 import { McpService } from './services/mcp.service';
 
 @Component({
@@ -24,6 +25,12 @@ export class AppComponent implements OnInit, OnDestroy {
   serverStatus = 'disconnected';
   serverUrl = window.location.protocol + '//' + window.location.hostname + ':3000';
 
+  // Windchill server management
+  availableServers: WindchillServer[] = [];
+  currentServer: WindchillServer | null = null;
+  selectedServerId: number | null = null;
+  switchingServer = false;
+
   selectedTool: Tool | null = null;
   showExecutionModal = false;
   parameters: { [key: string]: any } = {};
@@ -34,10 +41,14 @@ export class AppComponent implements OnInit, OnDestroy {
   // Cache for tool parameters to prevent repeated computation
   cachedToolParameters: any[] = [];
 
-  constructor(private mcpService: McpService) {}
+  constructor(
+    private mcpService: McpService,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit() {
     this.loadFilterPreferences();
+    this.loadAvailableServers();
     this.loadTools();
   }
 
@@ -53,16 +64,44 @@ export class AppComponent implements OnInit, OnDestroy {
     this.serverStatus = 'disconnected';
 
     try {
-      // First, get server info to get the actual MCP server URL
+      // First, get server info to get the actual MCP server URL and Windchill server
       try {
+        console.log('🔍 Fetching server info from backend...');
         const serverInfo = await this.mcpService.getServerInfo();
+        console.log('📥 Received server info:', serverInfo);
+
         if (serverInfo) {
           // The MCP server is on port 3000, construct the URL
           const baseUrl = window.location.protocol + '//' + window.location.hostname + ':3000';
           this.serverUrl = baseUrl;
           console.log('MCP Server URL:', this.serverUrl);
+
+          // Update current Windchill server info if available
+          if (serverInfo.windchillServer) {
+            const windchillServer = serverInfo.windchillServer;
+            const previousServer = this.currentServer?.name;
+
+            this.currentServer = {
+              id: windchillServer.id,
+              name: windchillServer.name,
+              url: windchillServer.url,
+              username: '',
+              isActive: true
+            };
+            this.selectedServerId = windchillServer.id;
+
+            console.log('✅ Current Windchill Server UPDATED:');
+            console.log('   Previous:', previousServer);
+            console.log('   New:', this.currentServer.name);
+            console.log('   Full object:', this.currentServer);
+          } else {
+            console.warn('⚠️ serverInfo.windchillServer is missing!');
+          }
+        } else {
+          console.warn('⚠️ serverInfo is null or undefined');
         }
       } catch (infoError) {
+        console.error('❌ Error fetching server info:', infoError);
         console.warn('Could not fetch server info, using default URL');
       }
 
@@ -86,6 +125,10 @@ export class AppComponent implements OnInit, OnDestroy {
       this.serverStatus = 'connected';
 
       console.log('Available agents:', this.agents);
+      console.log('✅ loadTools COMPLETE - Final state:');
+      console.log('   serverStatus:', this.serverStatus);
+      console.log('   currentServer:', this.currentServer?.name);
+      console.log('   currentServer object:', this.currentServer);
 
       // Apply saved filter preferences after tools are loaded
       setTimeout(() => {
@@ -103,6 +146,9 @@ export class AppComponent implements OnInit, OnDestroy {
     } finally {
       this.loading = false;
       console.log('loadTools completed. Loading:', this.loading);
+
+      // Force change detection to ensure UI updates
+      this.cdr.detectChanges();
     }
   }
 
@@ -444,6 +490,127 @@ export class AppComponent implements OnInit, OnDestroy {
 
   async refreshTools() {
     await this.loadTools();
+  }
+
+  /**
+   * Load available Windchill servers from backend
+   */
+  async loadAvailableServers() {
+    try {
+      console.log('Loading available Windchill servers...');
+      const response = await this.mcpService.getAvailableServers();
+
+      if (response && response.servers) {
+        this.availableServers = response.servers;
+
+        // Find and set current server
+        const active = this.availableServers.find(s => s.isActive);
+        if (active) {
+          this.currentServer = active;
+          this.selectedServerId = active.id;
+          console.log('Available servers loaded:', this.availableServers.length);
+          console.log('Current server:', this.currentServer);
+        }
+      }
+    } catch (error: any) {
+      console.error('Failed to load available servers:', error);
+      // If server list fails, still allow UI to work with current server
+    }
+  }
+
+  /**
+   * Switch to a different Windchill server
+   */
+  async onServerChange() {
+    if (!this.selectedServerId) {
+      return;
+    }
+
+    // Convert selectedServerId to number (HTML select returns string)
+    const serverIdNum = typeof this.selectedServerId === 'string'
+      ? parseInt(this.selectedServerId, 10)
+      : this.selectedServerId;
+
+    if (serverIdNum === this.currentServer?.id) {
+      return;
+    }
+
+    const targetServer = this.availableServers.find(s => s.id === serverIdNum);
+    if (!targetServer) {
+      console.error('Selected server not found', {
+        selectedServerId: this.selectedServerId,
+        serverIdNum,
+        availableServers: this.availableServers.map(s => ({ id: s.id, name: s.name }))
+      });
+      return;
+    }
+
+    // Confirm switch
+    const confirmed = confirm(
+      `Switch to ${targetServer.name}?\n\n` +
+      `URL: ${targetServer.url}\n` +
+      `Username: ${targetServer.username}\n\n` +
+      `This will reload all tools from the new server.`
+    );
+
+    if (!confirmed) {
+      // Revert selection
+      this.selectedServerId = this.currentServer?.id || null;
+      return;
+    }
+
+    await this.switchWindchillServer(serverIdNum);
+  }
+
+  /**
+   * Execute server switch
+   */
+  private async switchWindchillServer(serverId: number) {
+    this.switchingServer = true;
+    this.serverStatus = 'disconnected'; // Show disconnected while switching
+    console.log(`Switching to Windchill server ${serverId}...`);
+
+    try {
+      const response = await this.mcpService.switchWindchillServer(serverId);
+
+      if (response && response.success) {
+        console.log('Server switched successfully:', response.server);
+
+        // Update available servers list to reflect new active server
+        this.availableServers = this.availableServers.map(s => ({
+          ...s,
+          isActive: s.id === serverId
+        }));
+
+        // Clear current tools to show we're refreshing
+        this.tools = [];
+        this.filteredTools = [];
+        this.agents = [];
+
+        // Reload tools from new server - this will fetch and update currentServer from backend
+        await this.loadTools();
+
+        console.log(`✅ Successfully switched to ${this.currentServer?.name}`);
+        console.log('Current server after switch:', this.currentServer);
+        console.log('Server status after switch:', this.serverStatus);
+
+        // Force Angular to detect changes
+        this.cdr.detectChanges();
+      }
+    } catch (error: any) {
+      console.error('Failed to switch server:', error);
+
+      // Revert selection on error
+      this.selectedServerId = this.currentServer?.id || null;
+      this.serverStatus = 'connected'; // Restore connected status to previous server
+
+      alert(
+        `Failed to switch server: ${error?.message || 'Unknown error'}\n\n` +
+        `Please check the server configuration and try again.`
+      );
+    } finally {
+      this.switchingServer = false;
+    }
   }
 
   /**
