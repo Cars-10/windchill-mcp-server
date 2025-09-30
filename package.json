@@ -5,7 +5,9 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:ui\" --names \"SERVER,UI\" --prefix-colors \"cyan,magenta\"",
+    "dev:server": "tsx watch src/index.ts",
+    "dev:ui": "cd angular-ui && npm start",
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -17,7 +19,6 @@
     "ui:install": "cd angular-ui && npm install",
     "ui:build": "cd angular-ui && npm run build",
     "ui:serve": "cd angular-ui && npm start",
-    "ui:dev": "cd angular-ui && npm run dev",
     "deploy:ui": "./docker/deploy-ui.sh",
     "deploy:all": "docker compose -f docker/docker-compose.yml up -d",
     "verify:docker": "./docker/verify-docker.sh"
@@ -39,7 +40,8 @@
   },
   "devDependencies": {
     "@types/node": "^24.5.2",
-    "tsx": "latest",
+    "concurrently": "^9.2.1",
+    "tsx": "^4.20.6",
     "typescript": "latest"
   }
 }

@@ -174,10 +174,22 @@ const healthServer = http.createServer((req, res) => {
       uptime: process.uptime(),
       memory: process.memoryUsage()
     }));
-  } else if (req.url === '/tools' || req.url === '/api') {
-    logger.debug('Tools list requested via HTTP', { requestId, ip: req.socket.remoteAddress, url: req.url });
+  } else if (req.url === '/tools' || req.url === '/api' || req.url === '/api/tools') {
+    logger.debug('Tools list requested via HTTP', { requestId, ip: req.socket.remoteAddress, url: req.url, method: req.method });
 
-    // Handle both direct tools list and MCP JSON-RPC requests
+    // Handle GET requests directly
+    if (req.method === 'GET') {
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      });
+      res.end(JSON.stringify({ tools: allTools }));
+      return;
+    }
+
+    // Handle both direct tools list and MCP JSON-RPC requests for POST
     let body = '';
     req.on('data', chunk => {
       body += chunk.toString();
@@ -187,11 +199,16 @@ const healthServer = http.createServer((req, res) => {
       try {
         let response: any;
 
-        if (body && req.url === '/api') {
-          // Handle MCP JSON-RPC 2.0 request
-          const jsonRpcRequest = JSON.parse(body);
+        // Try to parse as JSON-RPC if body is present
+        if (body) {
+          try {
+            const jsonRpcRequest = JSON.parse(body);
 
-          if (jsonRpcRequest.method === 'tools/list') {
+            // Check if it's a valid JSON-RPC request
+            if (jsonRpcRequest.jsonrpc === '2.0' && jsonRpcRequest.method) {
+              logger.debug('Processing JSON-RPC request', { requestId, method: jsonRpcRequest.method });
+
+              if (jsonRpcRequest.method === 'tools/list') {
             response = {
               jsonrpc: '2.0',
               id: jsonRpcRequest.id,
@@ -238,22 +255,36 @@ const healthServer = http.createServer((req, res) => {
                 };
               }
             }
-          } else {
-            response = {
-              jsonrpc: '2.0',
-              id: jsonRpcRequest.id,
-              error: {
-                code: -32601,
-                message: `Method not found: ${jsonRpcRequest.method}`
+              } else {
+                response = {
+                  jsonrpc: '2.0',
+                  id: jsonRpcRequest.id,
+                  error: {
+                    code: -32601,
+                    message: `Method not found: ${jsonRpcRequest.method}`
+                  }
+                };
               }
-            };
+
+              res.writeHead(200, {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+              });
+              res.end(JSON.stringify(response));
+              return;
+            }
+          } catch (parseError) {
+            // Body is not valid JSON or not a JSON-RPC request, fall through
+            logger.debug('Body is not valid JSON-RPC', { requestId });
           }
-        } else {
-          // Handle direct tools list request
-          response = {
-            tools: allTools
-          };
         }
+
+        // Handle direct tools list request (non-JSON-RPC POST or empty body)
+        response = {
+          tools: allTools
+        };
 
         res.writeHead(200, {
           'Content-Type': 'application/json',

@@ -25,14 +25,23 @@ The wizard will:
 ```bash
 # Install dependencies
 npm install
+cd angular-ui && npm install && cd ..
 
 # Configure environment
 cp docker/.env.example docker/.env
 # Edit .env with your Windchill credentials
 
-# Run in development mode
+# Run in development mode (starts both MCP server + Angular UI)
 npm run dev
+
+# Or run services separately:
+npm run dev:server  # MCP server only (port 3000)
+npm run dev:ui      # Angular UI only (port 4200)
 ```
+
+The `npm run dev` command starts:
+- **MCP Server** on http://localhost:3000 (with hot reload)
+- **Angular UI** on http://localhost:4200 (with proxy to port 3000)
 
 ### Docker Deployment
 
