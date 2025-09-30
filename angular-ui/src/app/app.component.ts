@@ -604,10 +604,26 @@ export class AppComponent implements OnInit, OnDestroy {
       this.selectedServerId = this.currentServer?.id || null;
       this.serverStatus = 'connected'; // Restore connected status to previous server
 
-      alert(
-        `Failed to switch server: ${error?.message || 'Unknown error'}\n\n` +
-        `Please check the server configuration and try again.`
-      );
+      // Check if it's a connectivity error (503 status)
+      const errorResponse = error?.error;
+      if (error?.status === 503 && errorResponse?.error === 'Server unreachable') {
+        // Server is unreachable - show detailed error
+        const errorMessage =
+          `❌ Cannot connect to Windchill Server\n\n` +
+          `${errorResponse.message}\n\n` +
+          `Details: ${errorResponse.details}\n\n` +
+          `The server switch has been cancelled and you remain connected to:\n` +
+          `${this.currentServer?.name}`;
+
+        alert(errorMessage);
+      } else {
+        // Other errors
+        alert(
+          `Failed to switch server: ${error?.message || 'Unknown error'}\n\n` +
+          `Please check the server configuration and try again.\n\n` +
+          `You remain connected to: ${this.currentServer?.name}`
+        );
+      }
     } finally {
       this.switchingServer = false;
     }

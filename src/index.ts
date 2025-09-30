@@ -543,6 +543,74 @@ const healthServer = http.createServer((req, res) => {
           return;
         }
 
+        logger.info('Testing connectivity to Windchill server before switch', {
+          requestId,
+          fromServer: serverManager.getActiveServerId(),
+          toServer: serverId,
+          ip: req.socket.remoteAddress
+        });
+
+        // Get the target server config to test connectivity
+        const targetServer = serverManager.getServerById(serverId);
+        if (!targetServer) {
+          res.writeHead(404, {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          });
+          res.end(JSON.stringify({
+            error: 'Server not found',
+            message: `Server configuration for ID ${serverId} not found`
+          }));
+          return;
+        }
+
+        // Test connectivity to the Windchill server
+        try {
+          logger.debug('Testing connection to Windchill server', {
+            serverId,
+            url: targetServer.baseURL
+          });
+
+          const axios = (await import('axios')).default;
+          const testResponse = await axios.get(`${targetServer.baseURL}/servlet/WindchillAuthGW/wt.httpgw.HTTPServer/`
+, {
+            timeout: 5000,
+            validateStatus: (status) => status < 500, // Accept any status < 500 as "server is reachable"
+            auth: {
+              username: targetServer.username,
+              password: targetServer.password
+            }
+          });
+
+          logger.info('Windchill server connectivity test passed', {
+            serverId,
+            serverName: targetServer.name,
+            status: testResponse.status
+          });
+        } catch (connectError: any) {
+          logger.error('Windchill server connectivity test failed', {
+            serverId,
+            serverName: targetServer.name,
+            error: connectError.message,
+            code: connectError.code
+          });
+
+          res.writeHead(503, {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          });
+          res.end(JSON.stringify({
+            error: 'Server unreachable',
+            message: `Cannot connect to ${targetServer.name} at ${targetServer.baseURL}`,
+            details: connectError.code === 'ECONNREFUSED'
+              ? 'Connection refused - server may be down'
+              : connectError.code === 'ETIMEDOUT'
+              ? 'Connection timed out - server not responding'
+              : connectError.message
+          }));
+          return;
+        }
+
         logger.info('Switching Windchill server', {
           requestId,
           fromServer: serverManager.getActiveServerId(),
