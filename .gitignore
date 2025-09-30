@@ -45,3 +45,4 @@ coverage/
 *.tmp
 temp/
 tmp/
+angular-ui/.angular/
