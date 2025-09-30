@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  windchill-mcp-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: windchill-mcp-server:latest
+    container_name: windchill-mcp-server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - .env
+    volumes:
+      - ../logs:/app/logs
+    networks:
+      - windchill-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http = require('http'); const options = { host: 'localhost', port: 3000, path: '/health', timeout: 2000 }; const req = http.request(options, (res) => { if (res.statusCode === 200) process.exit(0); else process.exit(1); }); req.on('error', () => process.exit(1)); req.end();"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  windchill-mcp-ui:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.ui
+    image: windchill-mcp-ui:latest
+    container_name: windchill-mcp-ui
+    restart: unless-stopped
+    ports:
+      - "4200:8080"
+    environment:
+      - NODE_ENV=production
+      - API_BASE_URL=http://localhost:3000/api
+    depends_on:
+      - windchill-mcp-server
+    networks:
+      - windchill-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  windchill-network:
+    driver: bridge
+    name: windchill-network

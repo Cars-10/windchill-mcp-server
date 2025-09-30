@@ -1,0 +1,37 @@
+[dotenv@17.2.2] injecting env (0) from .env -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+================================================================================
+Windchill Parts Analysis
+================================================================================
+
+Fetching all parts from Windchill...
+Found 25 parts
+
+Analyzing part structures...
+Progress: 10/25 parts analyzed
+Progress: 20/25 parts analyzed
+
+================================================================================
+Analysis Results
+================================================================================
+
+Total Parts: 25
+Assemblies (parts with children): 0
+End Items (top-level assemblies): 0
+Components (parts without children): 25
+
+Example Components:
+  - GC000018: NUT_1_8 (ID: OR:wt.part.WTPart:130031)
+  - GC000019: LOWER_SUPPORT (ID: OR:wt.part.WTPart:130062)
+  - GC000020: LOWER_SUPP_BAR (ID: OR:wt.part.WTPart:132002)
+  - GC000021: SUPPORT_CAP (ID: OR:wt.part.WTPart:132033)
+  - GC000022: LOWER_BAG_HOLDER (ID: OR:wt.part.WTPart:132064)
+
+================================================================================
+Summary Statistics
+================================================================================
+
+Assembly Ratio: 0.0%
+End Item Ratio: 0.0%
+Component Ratio: 100.0%
+
+Analysis completed successfully!

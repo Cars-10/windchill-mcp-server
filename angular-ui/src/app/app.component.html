@@ -1,0 +1,241 @@
+<div class="container-fluid py-4">
+  <!-- Header -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <h1 class="mb-1">
+            🔧 Windchill MCP Tools Interface
+          </h1>
+          <p class="text-muted mb-0">Model Context Protocol Tools for PTC Windchill</p>
+        </div>
+        <div class="d-flex align-items-center">
+          <span class="badge bg-success me-2" *ngIf="serverStatus === 'connected'">✅ Server Connected</span>
+          <span class="badge bg-danger me-2" *ngIf="serverStatus === 'disconnected'">❌ Server Disconnected</span>
+          <button class="btn btn-outline-primary btn-sm" (click)="refreshTools()" [disabled]="loading">
+            <span *ngIf="loading">🔄</span>
+            <span *ngIf="!loading">🔄</span>
+            Refresh
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search and Filter -->
+  <div class="row mb-4" *ngIf="tools.length > 0">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <input
+                type="text"
+                class="form-control"
+                placeholder="Search tools..."
+                [(ngModel)]="searchTerm"
+                (input)="onSearchInput()">
+            </div>
+            <div class="col-md-3">
+              <select class="form-select" [(ngModel)]="selectedAgent" (change)="onFilterChange()">
+                <option value="">All Agents</option>
+                <option *ngFor="let agent of agents" [value]="agent">{{agent}}</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <select class="form-select" [(ngModel)]="selectedCategory" (change)="onFilterChange()">
+                <option value="">All Categories</option>
+                <option value="lifecycle">Lifecycle</option>
+                <option value="version">Version Management</option>
+                <option value="content">Content Management</option>
+                <option value="relationship">Relationship Management</option>
+                <option value="search">Search</option>
+                <option value="bulk">Bulk Operations</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="showSchemas" [(ngModel)]="showSchemas">
+                <label class="form-check-label" for="showSchemas">
+                  Show Schemas
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tools Grid -->
+  <div class="row" *ngIf="filteredTools.length > 0; else noTools">
+    <div class="col-md-6 col-lg-4 mb-4" *ngFor="let tool of filteredTools">
+      <div class="card tool-card h-100" [class.border-primary]="selectedTool?.name === tool.name">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <h6 class="card-title mb-0">{{tool.name}}</h6>
+            <span class="badge bg-secondary agent-badge">{{tool.agent}}</span>
+          </div>
+
+          <p class="card-text text-muted small">{{tool.description}}</p>
+
+          <div class="mb-3" *ngIf="showSchemas && tool.inputSchema">
+            <small class="text-muted">Parameters:</small>
+            <div class="small">
+              <div *ngFor="let param of getParameterNames(tool.inputSchema)">
+                <code>{{param}}</code>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary btn-sm flex-fill"
+                    (click)="selectTool(tool)"
+                    [disabled]="loading">
+              ▶️ Execute
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- No Tools Message -->
+  <ng-template #noTools>
+    <div class="row">
+      <div class="col-12">
+        <div class="text-center py-5">
+          <div style="font-size: 3rem; margin-bottom: 1rem;">
+            <span *ngIf="loading">⏳</span>
+            <span *ngIf="!loading && tools.length === 0">🔧</span>
+          </div>
+          <h4 *ngIf="loading">Loading Tools...</h4>
+          <h4 *ngIf="!loading && tools.length === 0">No Tools Available</h4>
+          <p class="text-muted" *ngIf="!loading && tools.length === 0">
+            Make sure the Windchill MCP Server is running and accessible.
+          </p>
+          <button *ngIf="!loading && tools.length === 0"
+                  class="btn btn-primary"
+                  (click)="refreshTools()">
+            🔄 Try Again
+          </button>
+        </div>
+      </div>
+    </div>
+  </ng-template>
+
+  <!-- Tool Execution Modal -->
+  <div class="modal-overlay" *ngIf="showExecutionModal && selectedTool" (click)="closeExecutionModal()">
+    <div class="modal-container" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="icon">🔧</span>
+          Execute Tool: {{selectedTool.name}}
+        </h3>
+        <button type="button" class="close-button" (click)="closeExecutionModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="tool-description">{{selectedTool.description}}</p>
+
+        <!-- Parameter Form -->
+        <form (ngSubmit)="executeTool($event)" #toolForm="ngForm" class="parameter-form">
+          <!-- No parameters message -->
+          <div *ngIf="getToolParameters(selectedTool).length === 0" class="no-parameters">
+            <p class="text-muted">
+              ℹ️ This tool doesn't require any parameters. Click "Execute Tool" to run it.
+            </p>
+          </div>
+
+          <!-- Parameters -->
+          <div *ngFor="let param of getToolParameters(selectedTool)" class="form-group">
+            <label class="form-label">
+              {{param.name}}
+              <span class="param-type">({{param.type}})</span>
+              <span class="required" *ngIf="isRequired(selectedTool, param.name)">*</span>
+            </label>
+
+            <!-- String input -->
+            <input *ngIf="param.type === 'string'"
+                   type="text"
+                   class="form-input"
+                   [name]="param.name"
+                   [(ngModel)]="parameters[param.name]"
+                   [required]="isRequired(selectedTool, param.name)"
+                   [placeholder]="param.description">
+
+            <!-- Number input -->
+            <input *ngIf="param.type === 'number'"
+                   type="number"
+                   class="form-input"
+                   [name]="param.name"
+                   [(ngModel)]="parameters[param.name]"
+                   [required]="isRequired(selectedTool, param.name)"
+                   [placeholder]="param.description">
+
+            <!-- Boolean input -->
+            <div *ngIf="param.type === 'boolean'" class="checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox"
+                       [name]="param.name"
+                       [(ngModel)]="parameters[param.name]">
+                <span class="checkmark"></span>
+                {{param.description}}
+              </label>
+            </div>
+
+            <!-- Array input -->
+            <textarea *ngIf="param.type === 'array'"
+                     class="form-textarea"
+                     rows="3"
+                     [name]="param.name"
+                     [(ngModel)]="parameters[param.name]"
+                     placeholder='Enter JSON array, e.g., ["item1", "item2"]'
+                     [required]="isRequired(selectedTool, param.name)"></textarea>
+
+            <!-- Object input -->
+            <textarea *ngIf="param.type === 'object'"
+                     class="form-textarea"
+                     rows="4"
+                     [name]="param.name"
+                     [(ngModel)]="parameters[param.name]"
+                     placeholder="Enter JSON object, e.g., {&quot;key&quot;: &quot;value&quot;}"
+                     [required]="isRequired(selectedTool, param.name)"></textarea>
+
+            <div class="form-help" *ngIf="param.description">{{param.description}}</div>
+          </div>
+
+          <div class="button-group">
+            <button type="submit" class="btn btn-primary" [disabled]="executing">
+              <span *ngIf="executing">⏳</span>
+              <span *ngIf="!executing">▶️</span>
+              {{executing ? 'Executing...' : 'Execute Tool'}}
+            </button>
+            <button type="button" class="btn btn-secondary" (click)="closeExecutionModal()">
+              Cancel
+            </button>
+          </div>
+        </form>
+
+        <!-- Execution Results -->
+        <div *ngIf="executionResult" class="execution-results">
+          <h4>Execution Result:</h4>
+          <div class="result-success" *ngIf="executionResult.success">
+            <pre class="json-display">{{safeJsonDisplay(executionResult.data)}}</pre>
+          </div>
+          <div class="result-error" *ngIf="!executionResult.success">
+            <strong>❌ Error:</strong> {{executionResult.error}}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Loading Overlay -->
+  <div class="global-loading-overlay" *ngIf="loading">
+    <div class="loading-spinner">
+      <div class="spinner-emoji">⏳</div>
+      <div class="loading-text">Loading Tools...</div>
+    </div>
+  </div>
+</div>

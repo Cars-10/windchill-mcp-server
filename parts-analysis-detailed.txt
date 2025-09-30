@@ -1,0 +1,64 @@
+[dotenv@17.2.2] injecting env (0) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+================================================================================
+Windchill Parts Analysis
+================================================================================
+
+Fetching all parts from Windchill...
+Found 25 parts
+
+Analyzing part structures...
+Progress: 10/25 parts analyzed
+Progress: 20/25 parts analyzed
+
+================================================================================
+Analysis Results
+================================================================================
+
+Total Parts: 25
+Assemblies (parts with children): 0
+End Items (top-level assemblies): 0
+Components (parts without children): 25
+
+Example Components (first 5):
+  - GC000018: NUT_1_8 (ID: OR:wt.part.WTPart:130031)
+  - GC000019: LOWER_SUPPORT (ID: OR:wt.part.WTPart:130062)
+  - GC000020: LOWER_SUPP_BAR (ID: OR:wt.part.WTPart:132002)
+  - GC000021: SUPPORT_CAP (ID: OR:wt.part.WTPart:132033)
+  - GC000022: LOWER_BAG_HOLDER (ID: OR:wt.part.WTPart:132064)
+
+All Components (25 total):
+  - GC000018: NUT_1_8 (State: [object Object])
+  - GC000019: LOWER_SUPPORT (State: [object Object])
+  - GC000020: LOWER_SUPP_BAR (State: [object Object])
+  - GC000021: SUPPORT_CAP (State: [object Object])
+  - GC000022: LOWER_BAG_HOLDER (State: [object Object])
+  - GC000023: PIN (State: [object Object])
+  - GC000024: UPPER_SUPPORT (State: [object Object])
+  - GC000025: BOTTOM_SLIDER (State: [object Object])
+  - GC000026: BOTTOM_SLIDER_CAP (State: [object Object])
+  - GC000027: UPPER_SLIDER (State: [object Object])
+  - GC000028: UPPER_BAG_HOLDER (State: [object Object])
+  - GC000029: HANDLE (State: [object Object])
+  - GC000030: CARD_HOLDER (State: [object Object])
+  - GC000031: WHEELS_ASSEM (State: [object Object])
+  - GC000032: WHEEL_AXLE (State: [object Object])
+  - GC000033: BEARING_AXLE (State: [object Object])
+  - GC000034: AXLE_SLEEVE (State: [object Object])
+  - WCDS000518: 01-51216_1.prt (State: [object Object])
+  - WCDS000115: 01-51232a.prt (State: [object Object])
+  - WCDS000204: 01-2_crankshaft.asm (State: [object Object])
+  - WCDS000023: 01-51368d.prt (State: [object Object])
+  - WCDS000561: 01-51243.asm (State: [object Object])
+  - WCDS000173: 01-51243b.prt (State: [object Object])
+  - WCDS000225: 01-51102.prt (State: [object Object])
+  - WCDS000328: 01-2_crankshaft.prt (State: [object Object])
+
+================================================================================
+Summary Statistics
+================================================================================
+
+Assembly Ratio: 0.0%
+End Item Ratio: 0.0%
+Component Ratio: 100.0%
+
+Analysis completed successfully!
