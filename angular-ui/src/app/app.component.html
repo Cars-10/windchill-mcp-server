@@ -274,7 +274,22 @@
         <div *ngIf="executionResult" class="execution-results">
           <h4>Execution Result:</h4>
           <div class="result-success" *ngIf="executionResult.success">
-            <pre class="json-display">{{safeJsonDisplay(executionResult.data)}}</pre>
+            <!-- Compact Variables View -->
+            <div *ngIf="getResultVariables(executionResult.data).length > 0" class="variables-summary mb-3">
+              <h6 class="mb-2">📊 Response Summary:</h6>
+              <div class="variables-grid">
+                <div *ngFor="let variable of getResultVariables(executionResult.data)" class="variable-item">
+                  <span class="variable-name">{{variable.name}}:</span>
+                  <span class="variable-value">{{variable.value}}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Full JSON Display -->
+            <details class="mt-3">
+              <summary class="json-toggle">🔍 View Full JSON Response</summary>
+              <pre class="json-display">{{safeJsonDisplay(executionResult.data)}}</pre>
+            </details>
           </div>
           <div class="result-error" *ngIf="!executionResult.success">
             <strong>❌ Error:</strong> {{executionResult.error}}

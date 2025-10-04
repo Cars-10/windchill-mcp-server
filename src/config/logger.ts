@@ -11,7 +11,8 @@ if (!fs.existsSync(logsDir)) {
 
 // Timezone formatter for Berlin time (Europe/Berlin)
 const berlinTimezone = () => {
-  return new Date().toLocaleString('en-US', {
+  const now = new Date();
+  const formatted = now.toLocaleString('en-US', {
     timeZone: 'Europe/Berlin',
     year: 'numeric',
     month: '2-digit',
@@ -19,9 +20,15 @@ const berlinTimezone = () => {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    fractionalSecondDigits: 3,
     hour12: false
-  }).replace(/(\d+)\/(\d+)\/(\d+),\s(\d+):(\d+):(\d+)\.(\d+)/, '$3-$1-$2 $4:$5:$6.$7');
+  });
+
+  // Add milliseconds manually
+  const ms = now.getMilliseconds().toString().padStart(3, '0');
+  const withMs = formatted.replace(/(\d+):(\d+):(\d+)/, `$1:$2:$3.${ms}`);
+
+  // Convert to YYYY-MM-DD HH:mm:ss.SSS format
+  return withMs.replace(/(\d+)\/(\d+)\/(\d+),\s(.+)/, '$3-$1-$2 $4');
 };
 
 // Custom format for log messages

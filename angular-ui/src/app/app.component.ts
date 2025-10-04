@@ -790,4 +790,50 @@ export class AppComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Extract key variables from result data for compact display
+   */
+  getResultVariables(data: any): Array<{ name: string; value: string }> {
+    const variables: Array<{ name: string; value: string }> = [];
+
+    if (!data || typeof data !== 'object') {
+      return variables;
+    }
+
+    // Helper to format value for display
+    const formatValue = (value: any): string => {
+      if (value === null) return 'null';
+      if (value === undefined) return 'undefined';
+      if (typeof value === 'boolean') return value ? 'true' : 'false';
+      if (typeof value === 'number') return String(value);
+      if (typeof value === 'string') {
+        // Truncate long strings
+        return value.length > 100 ? value.substring(0, 100) + '...' : value;
+      }
+      if (Array.isArray(value)) {
+        return `Array[${value.length}]`;
+      }
+      if (typeof value === 'object') {
+        const keys = Object.keys(value);
+        return `Object{${keys.length} keys}`;
+      }
+      return String(value);
+    };
+
+    // Extract top-level properties (exclude nested objects and arrays for compact view)
+    for (const [key, value] of Object.entries(data)) {
+      // Skip internal properties
+      if (key.startsWith('_') || key === '__visited') {
+        continue;
+      }
+
+      variables.push({
+        name: key,
+        value: formatValue(value)
+      });
+    }
+
+    return variables;
+  }
+
 }

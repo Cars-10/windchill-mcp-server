@@ -6,6 +6,7 @@ import { apiLogger, logger } from "../config/logger.js";
 export class WindchillAPIService {
   private client: any;
   private currentConfig: ReturnType<typeof getWindchillConfig>;
+  private csrfToken: string | null = null;
 
   constructor() {
     this.currentConfig = getWindchillConfig();
@@ -47,6 +48,9 @@ export class WindchillAPIService {
 
     // Switch server in server manager
     const newServer = serverManager.switchServer(serverId);
+
+    // Clear CSRF token (each server has its own token)
+    this.csrfToken = null;
 
     // Recreate client with new configuration
     this.createClient();
@@ -126,7 +130,8 @@ export class WindchillAPIService {
         const { requestId, startTime } = error.config?.metadata || {};
         const duration = Date.now() - (startTime || 0);
 
-        apiLogger.error('API Request failed', {
+        // Log detailed error information including response body
+        const errorDetails: any = {
           requestId,
           method: error.config?.method?.toUpperCase(),
           url: error.config?.url,
@@ -135,7 +140,14 @@ export class WindchillAPIService {
           duration: `${duration}ms`,
           errorMessage: error.message,
           errorCode: error.code
-        });
+        };
+
+        // Add response body if available (helps debug 400 errors)
+        if (error.response?.data) {
+          errorDetails.responseBody = error.response.data;
+        }
+
+        apiLogger.error('API Request failed', errorDetails);
 
         return Promise.reject(error);
       }
@@ -146,6 +158,60 @@ export class WindchillAPIService {
     return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
+  /**
+   * Fetch CSRF token (nonce) from Windchill
+   * Required for POST/PUT/DELETE operations
+   */
+  private async fetchCsrfToken(): Promise<string> {
+    try {
+      apiLogger.debug('Fetching CSRF token from Windchill');
+
+      // Make a GET request to the OData root to get CSRF token
+      const response = await this.client.get('/', {
+        headers: {
+          'X-CSRF-Token': 'fetch'
+        }
+      });
+
+      // Log all response headers for debugging
+      apiLogger.debug('Response headers received', {
+        headers: Object.keys(response.headers),
+        allHeaders: response.headers
+      });
+
+      // Try different header name variations
+      const token = response.headers['x-csrf-token'] ||
+                    response.headers['X-CSRF-Token'] ||
+                    response.headers['X-Csrf-Token'] ||
+                    response.headers['csrf-token'] ||
+                    response.headers['CSRF-Token'];
+
+      if (token) {
+        apiLogger.debug('CSRF token received', { tokenLength: token.length });
+        this.csrfToken = token;
+        return token;
+      }
+
+      // If no token header, Windchill might not require CSRF for this version
+      // Return a dummy token and let the POST request proceed
+      apiLogger.warn('No CSRF token in response headers - Windchill may not require CSRF protection');
+      this.csrfToken = 'NO_CSRF_REQUIRED';
+      return this.csrfToken;
+    } catch (error: any) {
+      apiLogger.error('Failed to fetch CSRF token', { error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Get valid CSRF token, fetching new one if needed
+   */
+  private async getCsrfToken(): Promise<string> {
+    if (!this.csrfToken) {
+      await this.fetchCsrfToken();
+    }
+    return this.csrfToken!;
+  }
 
   async get(endpoint: string, params?: any, config?: any) {
     apiLogger.debug('GET request initiated', {
@@ -162,28 +228,74 @@ export class WindchillAPIService {
       dataSize: JSON.stringify(data).length,
       hasConfig: !!config
     });
-    return this.client.post(endpoint, data, config);
+
+    // Get CSRF token and add to headers
+    try {
+      const csrfToken = await this.getCsrfToken();
+      const headers = {
+        ...config?.headers,
+        'X-CSRF-Token': csrfToken
+      };
+
+      return await this.client.post(endpoint, data, { ...config, headers });
+    } catch (tokenError: any) {
+      // If token fetch fails, try refreshing it once
+      apiLogger.warn('CSRF token error, refreshing token', { error: tokenError.message });
+      this.csrfToken = null;
+
+      const csrfToken = await this.getCsrfToken();
+      const headers = {
+        ...config?.headers,
+        'X-CSRF-Token': csrfToken
+      };
+
+      return await this.client.post(endpoint, data, { ...config, headers });
+    }
   }
 
-  async put(endpoint: string, data: any) {
+  async put(endpoint: string, data: any, config?: any) {
     apiLogger.debug('PUT request initiated', {
       endpoint,
       dataSize: JSON.stringify(data).length
     });
-    return this.client.put(endpoint, data);
+
+    // Get CSRF token and add to headers
+    const csrfToken = await this.getCsrfToken();
+    const headers = {
+      ...config?.headers,
+      'X-CSRF-Token': csrfToken
+    };
+
+    return this.client.put(endpoint, data, { ...config, headers });
   }
 
-  async patch(endpoint: string, data: any) {
+  async patch(endpoint: string, data: any, config?: any) {
     apiLogger.debug('PATCH request initiated', {
       endpoint,
       dataSize: JSON.stringify(data).length
     });
-    return this.client.patch(endpoint, data);
+
+    // Get CSRF token and add to headers
+    const csrfToken = await this.getCsrfToken();
+    const headers = {
+      ...config?.headers,
+      'X-CSRF-Token': csrfToken
+    };
+
+    return this.client.patch(endpoint, data, { ...config, headers });
   }
 
-  async delete(endpoint: string) {
+  async delete(endpoint: string, config?: any) {
     apiLogger.debug('DELETE request initiated', { endpoint });
-    return this.client.delete(endpoint);
+
+    // Get CSRF token and add to headers
+    const csrfToken = await this.getCsrfToken();
+    const headers = {
+      ...config?.headers,
+      'X-CSRF-Token': csrfToken
+    };
+
+    return this.client.delete(endpoint, { ...config, headers });
   }
 }
 

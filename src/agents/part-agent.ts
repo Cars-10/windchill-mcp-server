@@ -303,33 +303,52 @@ export class PartAgent extends BaseAgent {
     // === PRIORITY 2: BOM & STRUCTURE MANAGEMENT ===
     {
       name: 'get_structure',
-      description: 'Get part BOM (Bill of Materials) structure',
+      description: 'Get part BOM (Bill of Materials) structure using Windchill GetPartStructure action',
       inputSchema: {
         type: 'object',
         properties: {
           id: {
             type: 'string',
-            description: 'Part ID'
+            description: 'Part OID (e.g., "VR:wt.part.WTPart:5342084" or "OR:wt.part.WTPart:298122")'
           },
           levels: {
             type: 'number',
-            description: 'Number of BOM levels to retrieve (default: 1)'
+            description: 'Number of BOM levels to retrieve. Use 0 or "max" for maximum depth (default: 1)'
           },
-          view: {
+          expandPart: {
+            type: 'boolean',
+            description: 'Whether to expand Part details in Components (default: true)'
+          },
+          selectFields: {
             type: 'string',
-            description: 'BOM view (e.g., "Design", "Manufacturing")'
+            description: 'Comma-separated list of fields to select from Part (e.g., "Identity,Name,Number")'
           }
         },
         required: ['id'],
       },
       handler: async (params: any) => {
-        const queryParams = new URLSearchParams();
-        queryParams.append('levels', (params.levels || 1).toString());
-        if (params.view) queryParams.append('view', params.view);
+        // Determine levels - support "max" or numeric values
+        const levelsValue = params.levels === 0 || params.levels === 'max' ? 'max' : (params.levels || 1);
+        const expandPart = params.expandPart !== false; // Default to true
 
-        const response = await this.api.get(
-          `${apiEndpoints.parts}('${params.id}')/Structure?${queryParams.toString()}`
-        );
+        // Build $expand query - try simpler format first
+        // Just expand Components with levels, without nested Part expansion
+        const expandQuery = `Components($levels=${levelsValue})`;
+
+        // Build the complete URL for the GetPartStructure action
+        const actionUrl = `${apiEndpoints.parts}('${params.id}')/PTC.ProdMgmt.GetPartStructure?$expand=${expandQuery}`;
+
+        // Request body with NavigationCriteria
+        const requestBody = {
+          NavigationCriteria: {
+            ApplicableType: 'PTC.ProdMgmt.Part'
+            // Using default filter - can be extended with custom filters if needed
+          }
+        };
+
+        // POST request to invoke the GetPartStructure action
+        const response = await this.api.post(actionUrl, requestBody);
+
         return response.data;
       },
     },

@@ -3,6 +3,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import http from 'http';
 import dotenv from 'dotenv';
+import axios from 'axios';
 import { logger } from './config/logger.js';
 import { serverManager } from './config/windchill-servers.js';
 import { windchillAPI } from './services/windchill-api.js';
@@ -571,11 +572,11 @@ const healthServer = http.createServer((req, res) => {
             url: targetServer.baseURL
           });
 
-          const axios = (await import('axios')).default;
-          const testResponse = await axios.get(`${targetServer.baseURL}/servlet/WindchillAuthGW/wt.httpgw.HTTPServer/`
-, {
+          // Try to reach the Windchill server - we just want to confirm it's reachable
+          // Accept any HTTP response (including errors) as long as we get a response
+          const testResponse = await (axios as any).get(`${targetServer.baseURL}/servlet/WindchillAuthGW/wt.httpgw.HTTPServer/`, {
             timeout: 5000,
-            validateStatus: (status) => status < 500, // Accept any status < 500 as "server is reachable"
+            validateStatus: () => true, // Accept any status code - we just want to know server is reachable
             auth: {
               username: targetServer.username,
               password: targetServer.password
@@ -585,30 +586,52 @@ const healthServer = http.createServer((req, res) => {
           logger.info('Windchill server connectivity test passed', {
             serverId,
             serverName: targetServer.name,
-            status: testResponse.status
+            status: testResponse.status,
+            statusText: testResponse.statusText
           });
         } catch (connectError: any) {
-          logger.error('Windchill server connectivity test failed', {
-            serverId,
-            serverName: targetServer.name,
-            error: connectError.message,
-            code: connectError.code
-          });
+          // Only fail on network errors (ECONNREFUSED, ETIMEDOUT, ENOTFOUND, etc.)
+          // These indicate the server is truly unreachable
+          const isNetworkError = connectError.code === 'ECONNREFUSED' ||
+                                 connectError.code === 'ETIMEDOUT' ||
+                                 connectError.code === 'ENOTFOUND' ||
+                                 connectError.code === 'ECONNRESET';
 
-          res.writeHead(503, {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-          });
-          res.end(JSON.stringify({
-            error: 'Server unreachable',
-            message: `Cannot connect to ${targetServer.name} at ${targetServer.baseURL}`,
-            details: connectError.code === 'ECONNREFUSED'
-              ? 'Connection refused - server may be down'
-              : connectError.code === 'ETIMEDOUT'
-              ? 'Connection timed out - server not responding'
-              : connectError.message
-          }));
-          return;
+          if (isNetworkError) {
+            logger.error('Windchill server connectivity test failed - network error', {
+              serverId,
+              serverName: targetServer.name,
+              error: connectError.message,
+              code: connectError.code
+            });
+
+            res.writeHead(503, {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            });
+            res.end(JSON.stringify({
+              error: 'Server unreachable',
+              message: `Cannot connect to ${targetServer.name} at ${targetServer.baseURL}`,
+              details: connectError.code === 'ECONNREFUSED'
+                ? 'Connection refused - server may be down'
+                : connectError.code === 'ETIMEDOUT'
+                ? 'Connection timed out - server not responding'
+                : connectError.code === 'ENOTFOUND'
+                ? 'Server not found - check the URL'
+                : connectError.message
+            }));
+            return;
+          } else {
+            // Other errors (like SSL errors, HTTP errors) mean server is reachable but may have issues
+            // We'll allow the switch and let the actual API calls handle authentication/SSL issues
+            logger.warn('Windchill server connectivity test passed with warnings', {
+              serverId,
+              serverName: targetServer.name,
+              error: connectError.message,
+              code: connectError.code,
+              note: 'Allowing switch - server appears reachable despite error'
+            });
+          }
         }
 
         logger.info('Switching Windchill server', {
