@@ -2,9 +2,18 @@ import winston from 'winston';
 import 'winston-daily-rotate-file';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+// Get the directory of this file
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Create logs directory in the project root (two levels up from src/config)
+const projectRoot = path.resolve(__dirname, '..', '..');
+const logsDir = path.join(projectRoot, 'logs');
 
 // Ensure logs directory exists
-const logsDir = path.join(process.cwd(), 'logs');
 if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
@@ -22,13 +31,8 @@ const berlinTimezone = () => {
     second: '2-digit',
     hour12: false
   });
-
-  // Add milliseconds manually
-  const ms = now.getMilliseconds().toString().padStart(3, '0');
-  const withMs = formatted.replace(/(\d+):(\d+):(\d+)/, `$1:$2:$3.${ms}`);
-
-  // Convert to YYYY-MM-DD HH:mm:ss.SSS format
-  return withMs.replace(/(\d+)\/(\d+)\/(\d+),\s(.+)/, '$3-$1-$2 $4');
+  const ms = date.getMilliseconds().toString().padStart(3, '0');
+  return formatted.replace(/(\d+)\/(\d+)\/(\d+),\s(\d+):(\d+):(\d+)/, `$3-$1-$2 $4:$5:$6.${ms}`);
 };
 
 // Custom format for log messages
@@ -117,10 +121,11 @@ export const logger = winston.createLogger({
   transports: [
     fileRotateTransport,
     errorFileRotateTransport,
-    // Console transport for development
+    // Console transport for development - MUST use stderr for MCP protocol compliance
     new winston.transports.Console({
       format: consoleFormat,
-      level: process.env.NODE_ENV === 'production' ? 'warn' : 'debug'
+      level: process.env.NODE_ENV === 'production' ? 'warn' : 'debug',
+      stderrLevels: ['error', 'warn', 'info', 'debug', 'verbose', 'silly'] // Force all to stderr
     })
   ],
   exceptionHandlers: [
@@ -146,10 +151,11 @@ export const apiLogger = winston.createLogger({
   defaultMeta: { service: 'windchill-api' },
   transports: [
     apiFileRotateTransport,
-    // Also log API calls to console in development
+    // Also log API calls to console in development - MUST use stderr for MCP protocol
     new winston.transports.Console({
       format: consoleFormat,
-      level: process.env.NODE_ENV === 'production' ? 'info' : 'debug'
+      level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+      stderrLevels: ['error', 'warn', 'info', 'debug', 'verbose', 'silly'] // Force all to stderr
     })
   ]
 });

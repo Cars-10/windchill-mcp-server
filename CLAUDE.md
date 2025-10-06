@@ -35,13 +35,13 @@ Each agent extends BaseAgent and defines its own tools with specific input schem
 
 ### Windchill API Integration
 - **WindchillAPIService** (`src/services/windchill-api.ts`): Centralized service for Windchill REST API communication
-- Uses Basic Authentication (no session-based auth or CSRF tokens)
+- Uses Basic Authentication directly for all OData endpoints
 - Implements comprehensive HTTP methods (GET, POST, PUT, PATCH, DELETE)
 - **Dynamic Configuration**: Supports switching servers at runtime via `updateServerConfig(serverId)`
-- Enhanced support for multipart form data uploads
 - Request/response interceptors for logging and error handling
 - Each request gets a unique ID for traceability
 - Automatically uses credentials from currently active server
+- No session-based authentication or CSRF token management required
 
 ### MCP Server Architecture
 - **src/index.ts**: Main entry point that:
@@ -58,14 +58,20 @@ Each agent extends BaseAgent and defines its own tools with specific input schem
 
 ### Configuration
 - **windchill.ts** (`src/config/windchill.ts`): Contains Windchill connection settings and API endpoint definitions
-- Environment-based configuration using dotenv from `docker/.env`
+- Environment-based configuration using dotenv (loads from project root or `docker/.env`)
 - Defines standard OData endpoints for each domain (`/ProdMgmt/Parts`, `/DocMgmt/Documents`, etc.)
+- All configuration files should be placed in `docker/.env` for Docker deployments
 
 ### Angular UI Integration
 - **angular-ui/** directory contains a full Angular 18 application
-- Web interface provides tool discovery, dynamic form generation, and execution
-- Proxies API calls to MCP server on port 3000
-- Deployed via multi-stage Docker build with Nginx
+- Web interface provides:
+  - Tool discovery with search and filtering
+  - Dynamic form generation from JSON schemas
+  - Real-time tool execution with formatted results
+  - Windchill server selection and switching
+  - MCP JSON-RPC 2.0 protocol compliance
+- Development: Proxies API calls to MCP server on port 3000
+- Production: Deployed via multi-stage Docker build with Nginx on port 8080 (mapped to 4200)
 
 ## Development Commands
 

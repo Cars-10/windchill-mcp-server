@@ -13,7 +13,26 @@ import { DocumentAgent } from './agents/document-agent.js';
 import { WorkflowAgent } from './agents/workflow-agent.js';
 import { ProjectAgent } from './agents/project-agent.js';
 
-dotenv.config();
+// Suppress npm warnings and ensure nothing goes to stdout
+// MCP protocol requires ONLY JSON-RPC messages on stdout
+process.env.NPM_CONFIG_LOGLEVEL = 'silent';
+process.env.NPM_CONFIG_UPDATE_NOTIFIER = 'false';
+
+// Redirect any accidental stdout to stderr for MCP compliance
+// This MUST happen before dotenv.config() to catch dotenv debug output
+const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+process.stdout.write = ((chunk: any, encoding?: any, callback?: any): boolean => {
+  // Only allow writes from the MCP SDK (which are JSON-RPC messages)
+  const stack = new Error().stack || '';
+  if (stack.includes('@modelcontextprotocol/sdk')) {
+    return originalStdoutWrite(chunk, encoding, callback);
+  }
+  // Redirect everything else to stderr
+  return process.stderr.write(chunk, encoding, callback);
+}) as typeof process.stdout.write;
+
+// Configure dotenv with debug disabled to prevent stdout pollution
+dotenv.config({ debug: false });
 
 const server = new Server(
   {
@@ -701,18 +720,37 @@ async function main() {
     console.error('Windchill MCP Server started successfully');
     console.error(`Registered ${allTools.length} tools from ${Object.keys(agents).length} agents`);
 
-    // Start health check server
-    healthServer.listen(healthCheckPort, () => {
-      logger.info('Health check server started', {
-        port: healthCheckPort,
-        endpoints: ['/health', '/'],
-        timestamp: new Date().toISOString()
-      });
+    // Start health check server (only if not in stdio-only mode)
+    // When MCP_SERVER_PORT is 0 or health check is explicitly disabled, skip HTTP server
+    if (healthCheckPort && healthCheckPort > 0) {
+      healthServer.listen(healthCheckPort, () => {
+        logger.info('Health check server started', {
+          port: healthCheckPort,
+          endpoints: ['/health', '/'],
+          timestamp: new Date().toISOString()
+        });
 
-      // Also log to stderr for compatibility
-      console.error(`Health check server listening on port ${healthCheckPort}`);
-      console.error(`Server started at: ${new Date().toISOString()}`);
-    });
+        // Also log to stderr for compatibility
+        console.error(`Health check server listening on port ${healthCheckPort}`);
+        console.error(`Server started at: ${new Date().toISOString()}`);
+      }).on('error', (error: any) => {
+        if (error.code === 'EADDRINUSE') {
+          logger.warn('Health check server port already in use, continuing without HTTP server', {
+            port: healthCheckPort,
+            error: error.message
+          });
+          console.error(`Warning: Port ${healthCheckPort} already in use, continuing in stdio-only mode`);
+        } else {
+          logger.error('Health check server error', {
+            port: healthCheckPort,
+            error: error.message
+          });
+        }
+      });
+    } else {
+      logger.info('Health check server disabled (stdio-only mode)');
+      console.error('Running in stdio-only mode (no HTTP server)');
+    }
 
   } catch (error: any) {
     logger.error('Failed to start MCP Server', {

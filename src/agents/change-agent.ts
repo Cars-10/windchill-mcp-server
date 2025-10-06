@@ -74,8 +74,9 @@ export class ChangeAgent extends BaseAgent {
 
         if (params.number) filters.push(`Number eq '${params.number}'`);
         if (params.name) filters.push(`contains(Name,'${params.name}')`);
-        if (params.state) filters.push(`State eq '${params.state}'`);
-        if (params.priority) filters.push(`Priority eq '${params.priority}'`);
+        // State and Priority properties not available in Windchill 13.0.2 OData - removed to prevent 400 errors
+        // if (params.state) filters.push(`State eq '${params.state}'`);
+        // if (params.priority) filters.push(`Priority eq '${params.priority}'`);
         if (params.type) filters.push(`Type eq '${params.type}'`);
 
         if (filters.length > 0) {

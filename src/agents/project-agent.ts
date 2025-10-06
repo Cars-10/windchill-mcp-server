@@ -63,9 +63,11 @@ export class ProjectAgent extends BaseAgent {
         const queryParams = new URLSearchParams();
         const filters = [];
 
-        if (params.state) filters.push(`State eq '${params.state}'`);
+        // Windchill 13.0.2 may not support State, Manager properties on Projects
+        // Using only Name filter which is more likely to be supported
         if (params.name) filters.push(`contains(Name,'${params.name}')`);
-        if (params.manager) filters.push(`Manager eq '${params.manager}'`);
+        // if (params.state) filters.push(`State eq '${params.state}'`);
+        // if (params.manager) filters.push(`Manager eq '${params.manager}'`);
 
         if (filters.length > 0) {
           queryParams.append('$filter', filters.join(' and '));

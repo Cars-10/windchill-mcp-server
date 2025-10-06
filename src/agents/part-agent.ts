@@ -70,8 +70,9 @@ export class PartAgent extends BaseAgent {
         const filters = [];
 
         if (params.number) filters.push(`Number eq '${params.number}'`);
-        if (params.name) filters.push(`contains(Name,'${params.name}')`);
-        if (params.state) filters.push(`State eq '${params.state}'`);
+        if (params.name) filters.push(`contains(Name,'${params.name}'`);
+        // State property not available in Windchill 13.0.2 OData - removed to prevent 400 errors
+        // if (params.state) filters.push(`State eq '${params.state}'`);
         if (params.type) filters.push(`Type eq '${params.type}'`);
 
         if (filters.length > 0) {
@@ -607,15 +608,16 @@ export class PartAgent extends BaseAgent {
         if (params.number) filters.push(`Number eq '${params.number}'`);
         if (params.name) filters.push(`contains(Name,'${params.name}')`);
         if (params.type) filters.push(`Type eq '${params.type}'`);
-        if (params.state) filters.push(`State eq '${params.state}'`);
-        if (params.creator) filters.push(`CreatedBy eq '${params.creator}'`);
-        if (params.container) filters.push(`Container eq '${params.container}'`);
-        if (params.view) filters.push(`View eq '${params.view}'`);
-
-        if (params.createdAfter) filters.push(`CreatedOn gt ${params.createdAfter}`);
-        if (params.createdBefore) filters.push(`CreatedOn lt ${params.createdBefore}`);
-        if (params.modifiedAfter) filters.push(`ModifiedOn gt ${params.modifiedAfter}`);
-        if (params.modifiedBefore) filters.push(`ModifiedOn lt ${params.modifiedBefore}`);
+        // State, CreatedBy, CreatedOn, ModifiedOn, Container, View properties may not be available in Windchill 13.0.2 OData
+        // Removing them to prevent 400 errors
+        // if (params.state) filters.push(`State eq '${params.state}'`);
+        // if (params.creator) filters.push(`CreatedBy eq '${params.creator}'`);
+        // if (params.container) filters.push(`Container eq '${params.container}'`);
+        // if (params.view) filters.push(`View eq '${params.view}'`);
+        // if (params.createdAfter) filters.push(`CreatedOn gt ${params.createdAfter}`);
+        // if (params.createdBefore) filters.push(`CreatedOn lt ${params.createdBefore}`);
+        // if (params.modifiedAfter) filters.push(`ModifiedOn gt ${params.modifiedAfter}`);
+        // if (params.modifiedBefore) filters.push(`ModifiedOn lt ${params.modifiedBefore}`);
 
         if (filters.length > 0) {
           queryParams.append('$filter', filters.join(' and '));
@@ -633,34 +635,41 @@ export class PartAgent extends BaseAgent {
     },
     {
       name: 'search_by_lifecycle',
-      description: 'Search for parts by lifecycle state',
+      description: 'Search for parts (Note: Windchill 13.0.2 does not support lifecycle state filtering via OData)',
       inputSchema: {
         type: 'object',
         properties: {
           state: {
             type: 'string',
-            description: 'Lifecycle state to search for'
+            description: 'Lifecycle state (ignored - not supported in Windchill 13.0.2 OData)'
           },
-          container: {
+          number: {
             type: 'string',
-            description: 'Container filter'
+            description: 'Part number filter'
+          },
+          name: {
+            type: 'string',
+            description: 'Part name filter (partial match)'
           },
           limit: {
             type: 'number',
             description: 'Maximum number of results to return'
           }
         },
-        required: ['state']
+        required: []
       },
       handler: async (params: any) => {
         const queryParams = new URLSearchParams();
-        const filters = [`State eq '${params.state}'`];
+        const filters = [];
 
-        if (params.container) {
-          filters.push(`Container eq '${params.container}'`);
+        // State and Container properties not available in Windchill 13.0.2 OData
+        // Using Number and Name filters instead
+        if (params.number) filters.push(`Number eq '${params.number}'`);
+        if (params.name) filters.push(`contains(Name,'${params.name}')`);
+
+        if (filters.length > 0) {
+          queryParams.append('$filter', filters.join(' and '));
         }
-
-        queryParams.append('$filter', filters.join(' and '));
 
         if (params.limit) {
           queryParams.append('$top', params.limit.toString());

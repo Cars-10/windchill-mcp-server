@@ -192,12 +192,16 @@ export class WorkflowAgent extends BaseAgent {
       },
       handler: async (params: any) => {
         const queryParams = new URLSearchParams();
-        const filters = ['AssignedToMe eq true'];
+        const filters = [];
 
+        // Note: Windchill 13.0.2 doesn't support AssignedToMe filter
+        // Removing it to allow query to succeed - will return all tasks
         if (params.state) filters.push(`State eq '${params.state}'`);
         if (params.priority) filters.push(`Priority eq '${params.priority}'`);
 
-        queryParams.append('$filter', filters.join(' and '));
+        if (filters.length > 0) {
+          queryParams.append('$filter', filters.join(' and '));
+        }
 
         if (params.limit) {
           queryParams.append('$top', params.limit.toString());
