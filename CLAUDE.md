@@ -182,6 +182,123 @@ The Angular UI provides a dropdown to select and switch between configured serve
 - ES module interop enabled for compatibility with MCP SDK imports
 - Uses `.js` extensions in imports for ES modules (e.g., `from './base-agent.js'`)
 
+## Code Quality Guidelines
+
+### TypeScript Best Practices
+
+**Always use proper types - avoid `any`:**
+```typescript
+// ❌ BAD
+handler: async (params: any) => {
+  const response = await this.api.get('/endpoint', params);
+  return response.data;
+}
+
+// ✅ GOOD
+import { ToolParams, ToolResult, DocumentSearchParams } from '../types/common.js';
+
+handler: async (params: ToolParams): Promise<ToolResult> => {
+  const searchParams = params as DocumentSearchParams;
+  const response = await this.api.get('/endpoint', searchParams);
+  return response.data;
+}
+```
+
+**Use custom error types:**
+```typescript
+import { WindchillAPIError, MCPToolError } from '../types/common.js';
+
+// Throw appropriate errors
+if (!params.id) {
+  throw new MCPToolError('Missing required parameter: id', 'INVALID_PARAMS');
+}
+
+// API errors are automatically wrapped by WindchillAPIError
+try {
+  const response = await this.api.get(`/Parts('${params.id}')`);
+  return response.data;
+} catch (error) {
+  if (error instanceof WindchillAPIError) {
+    throw new MCPToolError(
+      `Failed to fetch part: ${error.message}`,
+      'API_ERROR',
+      { statusCode: error.statusCode }
+    );
+  }
+  throw error;
+}
+```
+
+**Define proper interfaces for tool parameters:**
+```typescript
+// Create specific param interfaces in src/types/common.ts
+export interface PartSearchParams extends ToolParams {
+  number?: string;
+  name?: string;
+  state?: string;
+  limit?: number;
+}
+
+// Use in tool handler
+handler: async (params: ToolParams): Promise<ToolResult> => {
+  const searchParams = params as PartSearchParams;
+  // Now you have type safety and autocomplete
+  if (searchParams.limit && searchParams.limit > 1000) {
+    throw new MCPToolError('Limit cannot exceed 1000', 'INVALID_PARAMS');
+  }
+}
+```
+
+### Tool Development Guidelines
+
+**Mark tool status appropriately:**
+```typescript
+import { ToolDefinition, ToolStatus } from '../types/common.js';
+
+// Document experimental or problematic tools in comments
+{
+  name: 'get_by_state',
+  description: 'Get parts by lifecycle state (EXPERIMENTAL - may not work in all Windchill versions)',
+  // Note: State property not available in Windchill 13.0.2 OData API
+  // This tool is marked experimental until confirmed working
+  inputSchema: { ... },
+  handler: async (params: ToolParams): Promise<ToolResult> => {
+    // Implementation
+  }
+}
+```
+
+**Document Windchill version compatibility:**
+```typescript
+{
+  name: 'search',
+  description: 'Search parts by number and name',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      number: { type: 'string', description: 'Part number' },
+      name: { type: 'string', description: 'Part name' },
+      // REMOVED: State property - not supported in Windchill 13.0.2 OData
+      // state: { type: 'string', description: 'Lifecycle state' }
+    }
+  },
+  handler: async (params: ToolParams): Promise<ToolResult> => {
+    const filters = [];
+    if (params.number) filters.push(`Number eq '${params.number}'`);
+    if (params.name) filters.push(`contains(Name,'${params.name}')`);
+    // State filter removed - causes 400 Bad Request in Windchill 13.0.2
+
+    const queryParams = new URLSearchParams();
+    if (filters.length > 0) {
+      queryParams.append('$filter', filters.join(' and '));
+    }
+
+    const response = await this.api.get(`/ProdMgmt/Parts?${queryParams.toString()}`);
+    return response.data;
+  }
+}
+```
+
 ## Adding New Functionality
 
 ### Creating a New Agent

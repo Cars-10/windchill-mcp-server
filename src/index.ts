@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
@@ -13,26 +14,24 @@ import { DocumentAgent } from './agents/document-agent.js';
 import { WorkflowAgent } from './agents/workflow-agent.js';
 import { ProjectAgent } from './agents/project-agent.js';
 
-// Suppress npm warnings and ensure nothing goes to stdout
-// MCP protocol requires ONLY JSON-RPC messages on stdout
+// Suppress npm warnings before loading anything
 process.env.NPM_CONFIG_LOGLEVEL = 'silent';
 process.env.NPM_CONFIG_UPDATE_NOTIFIER = 'false';
 
-// Redirect any accidental stdout to stderr for MCP compliance
-// This MUST happen before dotenv.config() to catch dotenv debug output
-const originalStdoutWrite = process.stdout.write.bind(process.stdout);
-process.stdout.write = ((chunk: any, encoding?: any, callback?: any): boolean => {
-  // Only allow writes from the MCP SDK (which are JSON-RPC messages)
-  const stack = new Error().stack || '';
-  if (stack.includes('@modelcontextprotocol/sdk')) {
-    return originalStdoutWrite(chunk, encoding, callback);
-  }
-  // Redirect everything else to stderr
-  return process.stderr.write(chunk, encoding, callback);
-}) as typeof process.stdout.write;
-
 // Configure dotenv with debug disabled to prevent stdout pollution
 dotenv.config({ debug: false });
+
+// Check if running in stdio-only mode (for Claude Desktop)
+const STDIO_ONLY = process.env.MCP_STDIO_ONLY === 'true';
+
+// In stdio mode, redirect any accidental console.log to stderr
+// The MCP SDK will handle stdout correctly for JSON-RPC messages
+if (STDIO_ONLY) {
+  const originalConsoleLog = console.log;
+  console.log = (...args: any[]) => {
+    console.error('[STDOUT-REDIRECT]', ...args);
+  };
+}
 
 const server = new Server(
   {
@@ -721,8 +720,8 @@ async function main() {
     console.error(`Registered ${allTools.length} tools from ${Object.keys(agents).length} agents`);
 
     // Start health check server (only if not in stdio-only mode)
-    // When MCP_SERVER_PORT is 0 or health check is explicitly disabled, skip HTTP server
-    if (healthCheckPort && healthCheckPort > 0) {
+    // When MCP_STDIO_ONLY=true or MCP_SERVER_PORT is 0, skip HTTP server
+    if (!STDIO_ONLY && healthCheckPort && healthCheckPort > 0) {
       healthServer.listen(healthCheckPort, () => {
         logger.info('Health check server started', {
           port: healthCheckPort,
@@ -747,8 +746,11 @@ async function main() {
           });
         }
       });
+    } else if (STDIO_ONLY) {
+      logger.info('Running in stdio-only mode - HTTP server disabled');
+      console.error('Running in stdio-only mode (no HTTP server)');
     } else {
-      logger.info('Health check server disabled (stdio-only mode)');
+      logger.info('Health check server disabled (MCP_SERVER_PORT=0)');
       console.error('Running in stdio-only mode (no HTTP server)');
     }
 

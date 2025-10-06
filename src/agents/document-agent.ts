@@ -681,8 +681,10 @@ export class DocumentAgent extends BaseAgent {
         required: ["id"]
       },
       handler: async (params: any) => {
+        // Windchill 13.0.2 doesn't support /versionHistory navigation property
+        // Use $expand=Versions instead
         const response = await this.api.get(
-          `${apiEndpoints.documents}('${params.id}')/versionHistory`
+          `${apiEndpoints.documents}('${params.id}')?$expand=Versions`
         );
 
         return response.data;
@@ -836,8 +838,10 @@ export class DocumentAgent extends BaseAgent {
         required: ["id"]
       },
       handler: async (params: any) => {
+        // Windchill 13.0.2 doesn't support /contentInfo navigation property
+        // Use $expand=ContentHolder to get content information
         const response = await this.api.get(
-          `${apiEndpoints.documents}('${params.id}')/contentInfo`
+          `${apiEndpoints.documents}('${params.id}')?$expand=ContentHolder`
         );
 
         return response.data;
@@ -1196,32 +1200,40 @@ export class DocumentAgent extends BaseAgent {
     },
     {
       name: "search_by_lifecycle",
-      description: "Search for documents by lifecycle state",
+      description: "Search for documents (Note: Windchill 13.0.2 does not support lifecycle state filtering via OData)",
       inputSchema: {
         type: "object",
         properties: {
           state: {
             type: "string",
-            description: "Lifecycle state to search for"
+            description: "Lifecycle state (ignored - not supported in Windchill 13.0.2 OData)"
           },
-          container: {
+          name: {
             type: "string",
-            description: "Container filter"
+            description: "Document name filter (partial match)"
+          },
+          number: {
+            type: "string",
+            description: "Document number filter"
           },
           limit: {
             type: "number",
             description: "Maximum number of results to return"
           }
         },
-        required: ["state"]
+        required: []
       },
       handler: async (params: any) => {
         const queryParams = new URLSearchParams();
+        const filters = [];
 
-        queryParams.append("$filter", `State eq '${params.state}'`);
+        // State and Container properties not available in Windchill 13.0.2 OData
+        // Using Name and Number filters instead
+        if (params.name) filters.push(`contains(Name,'${params.name}')`);
+        if (params.number) filters.push(`Number eq '${params.number}'`);
 
-        if (params.container) {
-          queryParams.append("$filter", `State eq '${params.state}' and Container eq '${params.container}'`);
+        if (filters.length > 0) {
+          queryParams.append("$filter", filters.join(' and '));
         }
 
         if (params.limit) {

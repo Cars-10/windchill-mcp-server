@@ -4,6 +4,28 @@ A comprehensive Model Context Protocol (MCP) server for PTC Windchill 13.0.2.x t
 
 ## 🚀 Quick Start
 
+### Using with Claude Desktop
+
+The fastest way to get started is to use this server with [Claude Desktop](https://claude.ai/download):
+
+```bash
+# Clone and build
+git clone <your-repo-url>
+cd windchill-mcp-server
+npm install
+npm run build
+
+# Configure Claude Desktop (see docs/CLAUDE_DESKTOP.md for details)
+# Edit: ~/Library/Application Support/Claude/claude_desktop_config.json (macOS)
+#   or: %APPDATA%\Claude\claude_desktop_config.json (Windows)
+```
+
+**📖 Full Claude Desktop setup guide:** [docs/CLAUDE_DESKTOP.md](docs/CLAUDE_DESKTOP.md)
+
+---
+
+### Local Development & Web UI
+
 ### Option 1: Setup Wizard (Easiest)
 
 ```bash
@@ -168,7 +190,16 @@ The web interface fully implements the MCP JSON-RPC 2.0 specification:
 
 ## 📋 Features
 
-### Recent Enhancements (v1.1.0)
+### Recent Enhancements (v1.2.0)
+
+**Claude Desktop Integration:**
+- ✅ **Native stdio support** for seamless Claude Desktop integration
+- ✅ **Stdio-only mode** (`MCP_STDIO_ONLY=true`) - disables HTTP server for cleaner operation
+- ✅ **Optimized logging** - file-only logging in stdio mode
+- ✅ **Package bin entry** - installable as a command-line tool
+- ✅ **Comprehensive setup guide** - [docs/CLAUDE_DESKTOP.md](docs/CLAUDE_DESKTOP.md)
+
+### Previous Enhancements (v1.1.0)
 
 **Document Agent Expansion**: The Document Agent has been significantly enhanced with 22 additional tools:
 - **Angular UI Deployment**: Complete Docker deployment configuration with multi-stage builds
@@ -251,10 +282,11 @@ windchill-mcp-server/
 | `WINDCHILL_URL`      | Yes      | -             | Windchill base URL |
 | `WINDCHILL_USER`     | Yes      | -             | Windchill username |
 | `WINDCHILL_PASSWORD` | Yes      | -             | Windchill password |
+| `MCP_STDIO_ONLY`     | No       | false         | Stdio-only mode (recommended for Claude Desktop) |
 | `MCP_SERVER_NAME`    | No       | windchill-mcp | MCP server name    |
 | `MCP_SERVER_VERSION` | No       | 1.0.0         | Server version     |
-| `MCP_SERVER_PORT`    | No       | 3000          | Server port        |
-| `LOG_LEVEL`          | No       | info          | Logging level      |
+| `MCP_SERVER_PORT`    | No       | 3000          | Server port (ignored when MCP_STDIO_ONLY=true) |
+| `LOG_LEVEL`          | No       | info          | Logging level (use 'error' for Claude Desktop) |
 
 ## 📚 API Endpoints
 
@@ -392,6 +424,32 @@ docker-compose restart
 # Test Windchill connectivity from container
 docker exec windchill-mcp-server ping plm.windchill.com
 ```
+
+## 🖥️ Claude Desktop vs Web UI
+
+This server supports two distinct usage modes:
+
+### Claude Desktop Mode (Recommended)
+
+Use `MCP_STDIO_ONLY=true` for:
+- ✅ Integration with Claude Desktop app
+- ✅ Stdio-based MCP protocol communication
+- ✅ File-only logging (no console output)
+- ✅ No HTTP server overhead
+- ✅ Simplified configuration
+
+**See**: [docs/CLAUDE_DESKTOP.md](docs/CLAUDE_DESKTOP.md)
+
+### Web UI Mode
+
+Default mode with HTTP server for:
+- ✅ Interactive Angular web interface on port 4200
+- ✅ REST API on port 3000
+- ✅ Multi-server switching capability
+- ✅ Real-time tool testing
+- ✅ Docker deployment support
+
+**See**: Docker deployment section above
 
 ## 📝 License
 

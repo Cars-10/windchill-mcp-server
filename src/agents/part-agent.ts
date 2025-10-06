@@ -38,17 +38,17 @@ export class PartAgent extends BaseAgent {
     // === PRIORITY 1: CORE PART OPERATIONS ===
     {
       name: 'search',
-      description: 'Search for parts by number, name, or state in the Windchill system',
+      description: 'Search for parts by number, name, or type. Supports wildcard patterns using "*" (e.g., "00000*" for prefix match, "*BOLT" for suffix, "*PLATE*" for contains).',
       inputSchema: {
         type: 'object',
         properties: {
           number: {
             type: 'string',
-            description: 'Part number to search for (e.g., "PRT-123", "ASM-001")'
+            description: 'Part number with optional wildcards (e.g., "PRT-123", "00000*", "*-001"). Use "*" for wildcard matching.'
           },
           name: {
             type: 'string',
-            description: 'Part name to search for (partial match)'
+            description: 'Part name with optional wildcards (e.g., "Axle", "BOLT*", "*PLATE*"). Use "*" for wildcard matching.'
           },
           state: {
             type: 'string',
@@ -68,9 +68,44 @@ export class PartAgent extends BaseAgent {
       handler: async (params: any) => {
         const queryParams = new URLSearchParams();
         const filters = [];
+        let useWildcardSearch = false;
 
-        if (params.number) filters.push(`Number eq '${params.number}'`);
-        if (params.name) filters.push(`contains(Name,'${params.name}'`);
+        // Handle wildcards in number field - convert to OData functions
+        if (params.number) {
+          if (params.number.includes('*')) {
+            useWildcardSearch = true;
+            // Remove wildcards and use appropriate OData function
+            const cleanNumber = params.number.replace(/\*/g, '');
+            if (params.number.endsWith('*') && !params.number.startsWith('*')) {
+              // Pattern like "00000*" -> startswith
+              filters.push(`startswith(Number,'${cleanNumber}')`);
+            } else if (params.number.startsWith('*') && !params.number.endsWith('*')) {
+              // Pattern like "*00000" -> endswith
+              filters.push(`endswith(Number,'${cleanNumber}')`);
+            } else {
+              // Pattern like "*00000*" or "*000*" -> contains
+              filters.push(`contains(Number,'${cleanNumber}')`);
+            }
+          } else {
+            // No wildcards - use exact match
+            filters.push(`Number eq '${params.number}'`);
+          }
+        }
+        if (params.name) {
+          if (params.name.includes('*')) {
+            useWildcardSearch = true;
+            const cleanName = params.name.replace(/\*/g, '');
+            if (params.name.endsWith('*') && !params.name.startsWith('*')) {
+              filters.push(`startswith(Name,'${cleanName}')`);
+            } else if (params.name.startsWith('*') && !params.name.endsWith('*')) {
+              filters.push(`endswith(Name,'${cleanName}')`);
+            } else {
+              filters.push(`contains(Name,'${cleanName}')`);
+            }
+          } else {
+            filters.push(`Name eq '${params.name}'`);
+          }
+        }
         // State property not available in Windchill 13.0.2 OData - removed to prevent 400 errors
         // if (params.state) filters.push(`State eq '${params.state}'`);
         if (params.type) filters.push(`Type eq '${params.type}'`);
@@ -84,7 +119,9 @@ export class PartAgent extends BaseAgent {
         }
 
         const response = await this.api.get(
-          `${apiEndpoints.parts}?${queryParams.toString()}`
+          `${apiEndpoints.parts}?${queryParams.toString()}`,
+          undefined,
+          { wildcardSearch: useWildcardSearch }
         );
         return response.data;
       },

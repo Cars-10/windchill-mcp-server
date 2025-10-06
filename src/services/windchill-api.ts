@@ -2,6 +2,7 @@ import axios from "axios";
 import { getWindchillConfig } from "../config/windchill.js";
 import { serverManager, WindchillServerConfig } from "../config/windchill-servers.js";
 import { apiLogger, logger } from "../config/logger.js";
+import { WindchillAPIError, WindchillError } from "../types/common.js";
 
 export class WindchillAPIService {
   private client: any;
@@ -100,6 +101,14 @@ export class WindchillAPIService {
         ).toString("base64");
         config.headers["Authorization"] = `Basic ${auth}`;
 
+        // Log all headers being sent (excluding auth for security)
+        const headersToLog = { ...config.headers };
+        delete headersToLog.Authorization;
+        apiLogger.debug('Request headers', {
+          requestId,
+          headers: headersToLog
+        });
+
         return config;
       },
       (error: any) => {
@@ -149,7 +158,14 @@ export class WindchillAPIService {
 
         apiLogger.error('API Request failed', errorDetails);
 
-        return Promise.reject(error);
+        // Create a more informative error
+        const windchillError = new WindchillAPIError(
+          error.response?.data?.error?.message || error.message,
+          error.response?.status,
+          error.response?.data
+        );
+
+        return Promise.reject(windchillError);
       }
     );
   }
@@ -217,9 +233,25 @@ export class WindchillAPIService {
     apiLogger.debug('GET request initiated', {
       endpoint,
       params,
-      hasConfig: !!config
+      hasConfig: !!config,
+      wildcardSearch: config?.wildcardSearch
     });
-    return this.client.get(endpoint, { params, ...config });
+
+    // Build headers object
+    const headers = { ...config?.headers };
+    if (config?.wildcardSearch) {
+      headers['PTC-WildcardSearch'] = 'true';
+      apiLogger.debug('Wildcard search enabled', { endpoint, headers });
+    }
+
+    // Merge config properly
+    const requestConfig = {
+      params,
+      ...config,
+      headers
+    };
+
+    return this.client.get(endpoint, requestConfig);
   }
 
   async post(endpoint: string, data: any, config?: any) {

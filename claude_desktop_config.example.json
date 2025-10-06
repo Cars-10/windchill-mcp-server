@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "windchill": {
+      "command": "node",
+      "args": [
+        "/REPLACE/WITH/ABSOLUTE/PATH/TO/windchill-mcp-server/dist/index.js"
+      ],
+      "env": {
+        "WINDCHILL_URL": "https://your-windchill-server.com/Windchill",
+        "WINDCHILL_USER": "your-username",
+        "WINDCHILL_PASSWORD": "your-password",
+        "MCP_STDIO_ONLY": "true",
+        "LOG_LEVEL": "error"
+      }
+    }
+  }
+}

@@ -31,7 +31,7 @@ const berlinTimezone = () => {
     second: '2-digit',
     hour12: false
   });
-  const ms = date.getMilliseconds().toString().padStart(3, '0');
+  const ms = now.getMilliseconds().toString().padStart(3, '0');
   return formatted.replace(/(\d+)\/(\d+)\/(\d+),\s(\d+):(\d+):(\d+)/, `$3-$1-$2 $4:$5:$6.${ms}`);
 };
 
@@ -113,21 +113,33 @@ const apiFileRotateTransport = new winston.transports.DailyRotateFile({
   level: 'debug'
 });
 
-// Create the main logger
-export const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'info',
-  format: logFormat,
-  defaultMeta: { service: 'windchill-mcp' },
-  transports: [
-    fileRotateTransport,
-    errorFileRotateTransport,
+// Check if running in stdio-only mode (for Claude Desktop)
+const STDIO_ONLY = process.env.MCP_STDIO_ONLY === 'true';
+
+// Configure transports based on mode
+const transports: winston.transport[] = [
+  fileRotateTransport,
+  errorFileRotateTransport
+];
+
+// Only add console transport if not in stdio-only mode
+if (!STDIO_ONLY) {
+  transports.push(
     // Console transport for development - MUST use stderr for MCP protocol compliance
     new winston.transports.Console({
       format: consoleFormat,
       level: process.env.NODE_ENV === 'production' ? 'warn' : 'debug',
       stderrLevels: ['error', 'warn', 'info', 'debug', 'verbose', 'silly'] // Force all to stderr
     })
-  ],
+  );
+}
+
+// Create the main logger
+export const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: logFormat,
+  defaultMeta: { service: 'windchill-mcp' },
+  transports,
   exceptionHandlers: [
     new winston.transports.DailyRotateFile({
       filename: path.join(logsDir, 'exceptions-%DATE%.log'),
@@ -144,20 +156,27 @@ export const logger = winston.createLogger({
   ]
 });
 
-// Create a specialized logger for API calls
-export const apiLogger = winston.createLogger({
-  level: 'debug',
-  format: logFormat,
-  defaultMeta: { service: 'windchill-api' },
-  transports: [
-    apiFileRotateTransport,
+// Configure API logger transports based on mode
+const apiTransports: winston.transport[] = [apiFileRotateTransport];
+
+// Only add console transport if not in stdio-only mode
+if (!STDIO_ONLY) {
+  apiTransports.push(
     // Also log API calls to console in development - MUST use stderr for MCP protocol
     new winston.transports.Console({
       format: consoleFormat,
       level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
       stderrLevels: ['error', 'warn', 'info', 'debug', 'verbose', 'silly'] // Force all to stderr
     })
-  ]
+  );
+}
+
+// Create a specialized logger for API calls
+export const apiLogger = winston.createLogger({
+  level: 'debug',
+  format: logFormat,
+  defaultMeta: { service: 'windchill-api' },
+  transports: apiTransports
 });
 
 // Log startup information

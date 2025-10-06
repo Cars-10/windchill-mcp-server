@@ -7,6 +7,7 @@
  */
 
 import { windchillAPI } from "../services/windchill-api.js";
+import { ToolDefinition } from "../types/common.js";
 
 /**
  * Abstract base class for all Windchill MCP agents.
@@ -69,16 +70,11 @@ export abstract class BaseAgent {
    *
    * @protected
    * @abstract
-   * @type {Array<{
-   *   name: string;
-   *   description: string;
-   *   inputSchema: any;
-   *   handler: (params: any) => Promise<any>;
-   * }>}
+   * @type {ToolDefinition[]}
    *
    * @example
    * ```typescript
-   * protected tools = [
+   * protected tools: ToolDefinition[] = [
    *   {
    *     name: 'document_search',
    *     description: 'Search for documents by various criteria',
@@ -90,7 +86,7 @@ export abstract class BaseAgent {
    *         type: { type: 'string', description: 'Document type' }
    *       }
    *     },
-   *     handler: async (params) => {
+   *     handler: async (params: ToolParams): Promise<ToolResult> => {
    *       // Implementation for searching documents
    *       return await this.api.searchDocuments(params);
    *     }
@@ -98,31 +94,5 @@ export abstract class BaseAgent {
    * ];
    * ```
    */
-  protected abstract tools: Array<{
-    /**
-     * Unique identifier for the tool within this agent.
-     * Tool names should follow the pattern: `{agentName}_{toolAction}`
-     */
-    name: string;
-
-    /**
-     * Human-readable description of what the tool does.
-     * This description is exposed to MCP clients for tool discovery.
-     */
-    description: string;
-
-    /**
-     * JSON Schema defining the expected input parameters for this tool.
-     * Used for validation and documentation of the tool's interface.
-     */
-    inputSchema: any;
-
-    /**
-     * Async function that implements the tool's core functionality.
-     *
-     * @param params - Input parameters conforming to the inputSchema
-     * @returns Promise resolving to the tool's result
-     */
-    handler: (params: any) => Promise<any>;
-  }>;
+  protected abstract tools: ToolDefinition[];
 }
