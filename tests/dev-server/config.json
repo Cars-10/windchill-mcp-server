@@ -1,0 +1,61 @@
+{
+  "server": {
+    "name": "Development PLM",
+    "url": "http://plm.windchill.com/Windchill",
+    "serverId": 2,
+    "mcpServerUrl": "http://localhost:3000",
+    "timeout": 30
+  },
+  "testData": {
+    "parts": {
+      "existingPartNumber": "00000001",
+      "existingPartId": "VR:wt.part.WTPart:123456",
+      "testPartPrefix": "PRT-TEST-"
+    },
+    "documents": {
+      "existingDocNumber": "DOC-001",
+      "existingDocId": "VR:wt.doc.WTDocument:123456",
+      "testDocPrefix": "DOC-TEST-"
+    },
+    "changes": {
+      "existingChangeNumber": "CR-001",
+      "existingChangeId": "VR:wt.change2.WTChangeRequest2:123456",
+      "testChangePrefix": "CR-TEST-"
+    },
+    "workflows": {
+      "existingTaskId": "VR:wt.workflow.work.WfAssignedActivity:123456",
+      "testAssignee": "wcadmin"
+    },
+    "projects": {
+      "existingProjectId": "wt.projmgmt.admin.Project2:123456",
+      "existingProjectName": "Test Project"
+    }
+  },
+  "expectedFields": {
+    "part": ["ID", "Number", "Name", "Type"],
+    "document": ["ID", "Number", "Name", "Type"],
+    "change": ["ID", "Number", "Name", "Description"],
+    "workflow": ["ID", "State"],
+    "project": ["ID", "Name"]
+  },
+  "knownLimitations": {
+    "part": {
+      "stateFiltering": "Windchill 13.0.2 does not support lifecycle state filtering via OData",
+      "dateFiltering": "CreatedOn, ModifiedOn properties may not be available"
+    },
+    "document": {
+      "attributeExpansion": "$expand parameter for custom attributes is not supported",
+      "stateFiltering": "Lifecycle state filtering may not work in all cases"
+    },
+    "change": {
+      "priorityFiltering": "Priority property may not be available in OData API"
+    }
+  },
+  "testSettings": {
+    "createTestObjects": false,
+    "cleanupAfterTests": true,
+    "skipDestructiveTests": false,
+    "maxRetries": 3,
+    "retryDelay": 2
+  }
+}

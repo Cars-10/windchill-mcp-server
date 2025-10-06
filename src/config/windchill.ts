@@ -32,4 +32,6 @@ export const apiEndpoints = {
   changes: '/ChangeMgmt/ChangeRequests',
   workflows: '/WorkflowMgmt/WorkItems',
   projects: '/ProjMgmt/Projects',
+  dataAdmin: '/DataAdmin',
+  containers: '/DataAdmin/Containers',
 };

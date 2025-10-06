@@ -3,7 +3,6 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import http from 'http';
-import dotenv from 'dotenv';
 import axios from 'axios';
 import { logger } from './config/logger.js';
 import { serverManager } from './config/windchill-servers.js';
@@ -13,13 +12,15 @@ import { ChangeAgent } from './agents/change-agent.js';
 import { DocumentAgent } from './agents/document-agent.js';
 import { WorkflowAgent } from './agents/workflow-agent.js';
 import { ProjectAgent } from './agents/project-agent.js';
+import { DataAdminAgent } from './agents/dataadmin-agent.js';
+import { ServerManagerAgent } from './agents/servermanager-agent.js';
 
 // Suppress npm warnings before loading anything
 process.env.NPM_CONFIG_LOGLEVEL = 'silent';
 process.env.NPM_CONFIG_UPDATE_NOTIFIER = 'false';
 
-// Configure dotenv with debug disabled to prevent stdout pollution
-dotenv.config({ debug: false });
+// Note: dotenv is configured in windchill-servers.ts with explicit path to project root
+// This ensures .env is loaded correctly regardless of current working directory
 
 // Check if running in stdio-only mode (for Claude Desktop)
 const STDIO_ONLY = process.env.MCP_STDIO_ONLY === 'true';
@@ -53,6 +54,8 @@ const agents = {
   document: new DocumentAgent(),
   workflow: new WorkflowAgent(),
   project: new ProjectAgent(),
+  dataadmin: new DataAdminAgent(),
+  servermanager: new ServerManagerAgent(),
 };
 
 // Collect all tools from agents
@@ -779,7 +782,14 @@ process.on('SIGTERM', () => {
 });
 
 // Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', (error: any) => {
+  // Ignore EPIPE errors - these occur when Claude Desktop closes the stdio connection
+  // before we finish writing. This is benign and expected behavior.
+  if (error.code === 'EPIPE') {
+    logger.debug('EPIPE error (stdio connection closed)', { error: error.message });
+    return;
+  }
+
   logger.error('Uncaught exception', {
     error: error.message,
     stack: error.stack

@@ -1,6 +1,6 @@
 # Windchill MCP Server
 
-A comprehensive Model Context Protocol (MCP) server for PTC Windchill 13.0.2.x that enables Claude and other AI assistants to interact with Windchill PLM systems through a standardized interface with 42+ tools across 5 specialized agents.
+A comprehensive Model Context Protocol (MCP) server for PTC Windchill 13.0.2.x that enables Claude and other AI assistants to interact with Windchill PLM systems through a standardized interface with 64+ tools across 7 specialized agents, including dynamic server switching.
 
 ## 🚀 Quick Start
 
@@ -223,8 +223,7 @@ The web interface fully implements the MCP JSON-RPC 2.0 specification:
 
 ### Agents
 
-- **Part Agent**: Part management, BOM structures, part searches
-- **Change Agent**: Change request management
+- **Part Agent**: Part management, BOM structures, part searches (24 tools)
 - **Document Agent**: Comprehensive document management with 25 tools:
   - **Core Lifecycle**: Create, update, checkout, checkin, revise documents
   - **Version Management**: Version history, iterations, iteration notes
@@ -232,8 +231,18 @@ The web interface fully implements the MCP JSON-RPC 2.0 specification:
   - **Relationship Management**: Document references and linking
   - **Advanced Search**: Multi-criteria search with date/lifecycle filters
   - **Bulk Operations**: Batch updates and lifecycle actions
-- **Workflow Agent**: Workflow items and processes
-- **Project Agent**: Project management operations
+- **Change Agent**: Change request management (16 tools)
+- **Workflow Agent**: Workflow items and processes (~12 tools)
+- **Project Agent**: Project management operations (~10 tools)
+- **DataAdmin Agent**: Container/context discovery and management (13 tools)
+  - **Container Discovery**: List products, libraries, organizations, projects
+  - **Structure Navigation**: Folders and folder contents
+  - **Configuration Management**: Option pools and option sets for products/libraries
+- **ServerManager Agent**: Multi-server management and switching (5 tools) **NEW**
+  - **Server Discovery**: List all configured servers with connection details
+  - **Dynamic Switching**: Switch between Production/Development/Test environments on-the-fly
+  - **Connection Testing**: Test server connectivity before switching
+  - **Session Management**: Get current server and detailed server information
 
 ### Capabilities
 

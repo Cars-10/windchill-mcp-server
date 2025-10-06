@@ -1,7 +1,18 @@
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { logger } from './logger.js';
 
-dotenv.config();
+// Get the directory of the current module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load .env from project root, not from current working directory
+// This ensures it works when run from any directory (e.g., Claude Desktop runs from /)
+const projectRoot = path.resolve(__dirname, '../..');
+const envPath = path.join(projectRoot, '.env');
+
+dotenv.config({ path: envPath });
 
 export interface WindchillServerConfig {
   id: number;

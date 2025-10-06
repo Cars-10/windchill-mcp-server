@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Model Context Protocol (MCP) server for PTC Windchill 13.0.2.x, providing Claude with the ability to interact with Windchill PLM systems. The server implements multiple agents that handle different Windchill domains: parts, changes, documents, workflows, and projects.
+This is a Model Context Protocol (MCP) server for PTC Windchill 13.0.2.x, providing Claude with the ability to interact with Windchill PLM systems. The server implements multiple agents that handle different Windchill domains: parts, documents, changes, workflows, projects, data administration (containers/contexts), and server management (multi-server switching).
 
 ## Architecture
 
@@ -12,8 +12,7 @@ This is a Model Context Protocol (MCP) server for PTC Windchill 13.0.2.x, provid
 The codebase follows an agent-based architecture where each domain is handled by a specialized agent:
 
 - **BaseAgent** (`src/agents/base-agent.ts`): Abstract base class that provides common MCP server tool registration and error handling
-- **PartAgent**: Handles part management, BOM structures, and part searches
-- **ChangeAgent**: Manages change requests and change processes
+- **PartAgent**: Handles part management, BOM structures, and part searches (24 tools)
 - **DocumentAgent**: Comprehensive document management with 25 tools covering:
   - Document lifecycle (create, update, checkout, checkin, revise)
   - Version management (history, iterations, notes)
@@ -21,8 +20,20 @@ The codebase follows an agent-based architecture where each domain is handled by
   - Relationship management (references, linking)
   - Advanced search (multi-criteria, date ranges, lifecycle states)
   - Bulk operations (batch updates, lifecycle actions)
-- **WorkflowAgent**: Manages workflow items and processes
-- **ProjectAgent**: Handles project-related operations
+- **ChangeAgent**: Manages change requests and change processes (16 tools)
+- **WorkflowAgent**: Manages workflow items and processes (~12 tools)
+- **ProjectAgent**: Handles project-related operations (~10 tools)
+- **DataAdminAgent**: Container and context management (13 tools) covering:
+  - Container discovery (list products, libraries, organizations, projects, site)
+  - Container details and navigation (folders, folder contents)
+  - Product/library configuration (option pools, option sets)
+  - Uses Windchill REST Services DataAdmin domain (`/DataAdmin/Containers`)
+- **ServerManagerAgent**: Multi-server management and switching (5 tools) covering:
+  - Server discovery (list all configured servers)
+  - Dynamic server switching (change active server at runtime via MCP)
+  - Connection testing (verify server availability before switching)
+  - Server information retrieval (get current and specific server details)
+  - Enables Claude Desktop users to seamlessly switch between Production, Development, and Test environments
 
 Each agent extends BaseAgent and defines its own tools with specific input schemas and handlers.
 
