@@ -27,6 +27,7 @@ export const windchillConfig = new Proxy({} as any, {
 });
 
 export const apiEndpoints = {
+  // Existing domains
   parts: '/ProdMgmt/Parts',
   documents: '/DocMgmt/Documents',
   changes: '/ChangeMgmt/ChangeRequests',
@@ -34,4 +35,30 @@ export const apiEndpoints = {
   projects: '/ProjMgmt/Projects',
   dataAdmin: '/DataAdmin',
   containers: '/DataAdmin/Containers',
+
+  // New Tier 1 domains (High Priority)
+  principals: '/PrincipalMgmt',
+  users: '/PrincipalMgmt/Users',
+  groups: '/PrincipalMgmt/Groups',
+  teams: '/PrincipalMgmt/Teams',
+  prodPlatform: '/ProdPlatformMgmt',
+  optionSets: '/ProdPlatformMgmt/OptionSets',
+  options: '/ProdPlatformMgmt/Options',
+  navCriteria: '/NavCriteria',
+  partLists: '/PartListMgmt/PartLists',
+
+  // New Tier 2 domains (Module-Specific)
+  manufacturing: '/Factory',
+  mfgProcesses: '/MfgProcMgmt',
+  quality: '/Quality',
+
+  // New Tier 3 domains (Specialized Features)
+  visualization: '/Visualization',
+  effectivity: '/EffectivityMgmt',
+  cadDocuments: '/CADDocumentMgmt',
+  classification: '/ClfStructure',
+  savedSearches: '/SavedSearch',
+  serviceInfo: '/ServiceInfoMgmt',
+  ptc: '/PTC',
+  dynamicDocuments: '/DynamicDocMgmt',
 };

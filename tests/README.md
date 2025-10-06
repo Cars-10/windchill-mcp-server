@@ -5,28 +5,68 @@ Comprehensive test suite for the Windchill MCP Server, testing all agent tools a
 ## Overview
 
 This test suite validates all tools exposed by the Windchill MCP server agents:
+
+**Core Domain Agents:**
 - **Part Agent** (24 tools) - Parts, BOM management, lifecycle
 - **Document Agent** (25 tools) - Documents, content, references
 - **Change Agent** (16 tools) - Change requests, affected objects
 - **Workflow Agent** (~12 tools) - Workflow tasks, approvals
 - **Project Agent** (~10 tools) - Project management
+- **DataAdmin Agent** (13 tools) - Containers, contexts, option pools
+- **ServerManager Agent** (5 tools) - Multi-server management
+
+**Tier 1 Agents (High Priority):**
+- **PrincipalMgmt Agent** (16 tools) - Users, groups, roles, teams
+- **ProdPlatformMgmt Agent** (12 tools) - Options & Variants
+- **NavCriteria Agent** (8 tools) - BOM navigation and filtering
+- **PartListMgmt Agent** (10 tools) - Parts lists and favorites
+
+**Tier 2 Agents (Module-Specific):**
+- **Manufacturing Agent** (12 tools) - Manufacturing data (requires MPMLink)
+- **Quality Agent** (10 tools) - Quality management (requires QMS)
+
+**Tier 3 Agents (Specialized):**
+- **Visualization Agent** (3 tools) - Creo View services
+- **Effectivity Agent** (2 tools) - Date/unit effectivity
+- **CADDocument Agent** (2 tools) - CAD-specific operations
+- **Classification Agent** (2 tools) - Taxonomy management
+- **SavedSearch Agent** (3 tools) - Saved search management
+- **ServiceInfo Agent** (2 tools) - Service documentation
+- **PTC Agent** (2 tools) - Common utility entities
+
+**Total:** 20 agents, ~189 tools
 
 ## Directory Structure
 
 ```
 tests/
-├── README.md                          # This file
+├── README.md                              # This file
+├── NEW_AGENTS_TESTING_GUIDE.md           # Guide for new agents (Tier 1-3)
 ├── utils/
-│   └── test-helpers.sh               # Shared test utilities and helpers
-└── dev-server/                       # Development server tests
-    ├── config.json                   # Server configuration
-    ├── run-all-tests.sh              # Master test runner
-    ├── 01-part-agent-tests.sh        # Part tools tests
-    ├── 02-document-agent-tests.sh    # Document tools tests
-    ├── 03-change-agent-tests.sh      # Change tools tests
-    ├── 04-workflow-agent-tests.sh    # Workflow tools tests
-    ├── 05-project-agent-tests.sh     # Project tools tests
-    └── results/                      # Test results (JSON)
+│   └── test-helpers.sh                   # Shared test utilities and helpers
+└── dev-server/                           # Development server tests
+    ├── config.json                       # Server configuration
+    ├── run-all-tests.sh                  # Master test runner (all 14 suites)
+    │
+    ├── 01-part-agent-tests.sh            # Core agents
+    ├── 02-document-agent-tests.sh
+    ├── 03-change-agent-tests.sh
+    ├── 04-workflow-agent-tests.sh
+    ├── 05-project-agent-tests.sh
+    ├── 06-dataadmin-agent-tests.sh
+    ├── 07-servermanager-agent-tests.sh
+    │
+    ├── 08-principalmgmt-agent-tests.sh   # Tier 1 agents
+    ├── 09-prodplatformmgmt-agent-tests.sh
+    ├── 10-navcriteria-agent-tests.sh
+    ├── 11-partlistmgmt-agent-tests.sh
+    │
+    ├── 12-manufacturing-agent-tests.sh   # Tier 2 agents
+    ├── 13-quality-agent-tests.sh
+    │
+    ├── 14-tier3-agents-tests.sh          # Tier 3 agents (7 agents in 1 script)
+    │
+    └── results/                          # Test results (JSON)
         └── *.json
 ```
 

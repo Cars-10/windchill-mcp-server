@@ -271,3 +271,165 @@ export interface ToolMetadata {
   windchillVersion?: string;
   lastTested?: string;
 }
+
+/**
+ * Principal (User) interface
+ */
+export interface WindchillUser extends WindchillObject {
+  FullName?: string;
+  Email?: string;
+  Active?: boolean;
+  Organization?: string;
+}
+
+/**
+ * Group interface
+ */
+export interface WindchillGroup extends WindchillObject {
+  Members?: string[];
+  Description?: string;
+}
+
+/**
+ * Team interface
+ */
+export interface WindchillTeam extends WindchillObject {
+  TeamLeader?: string;
+  Members?: WindchillTeamMember[];
+  Context?: string;
+}
+
+/**
+ * Team member interface
+ */
+export interface WindchillTeamMember {
+  Principal?: string;
+  Role?: string;
+}
+
+/**
+ * Option interface (Product Platform Management)
+ */
+export interface WindchillOption extends WindchillObject {
+  OptionGroup?: string;
+  DefaultChoice?: string;
+  Choices?: WindchillChoice[];
+}
+
+/**
+ * Choice interface (Product Platform Management)
+ */
+export interface WindchillChoice {
+  ID?: string;
+  Name?: string;
+  Description?: string;
+}
+
+/**
+ * Option Set interface
+ */
+export interface WindchillOptionSet extends WindchillObject {
+  Options?: string[];
+  VariantExpression?: string;
+}
+
+/**
+ * Navigation Criteria interface
+ */
+export interface WindchillNavCriteria extends WindchillObject {
+  FilterType?: string;
+  FilterExpression?: string;
+}
+
+/**
+ * Part List interface
+ */
+export interface WindchillPartList extends WindchillObject {
+  Owner?: string;
+  Parts?: string[];
+  Shared?: boolean;
+}
+
+/**
+ * Manufacturing Part interface
+ */
+export interface WindchillManufacturingPart extends WindchillObject {
+  ProcessPlan?: string;
+  Operations?: string[];
+}
+
+/**
+ * Process Plan interface
+ */
+export interface WindchillProcessPlan extends WindchillObject {
+  Operations?: WindchillOperation[];
+  Resources?: string[];
+}
+
+/**
+ * Operation interface
+ */
+export interface WindchillOperation extends WindchillObject {
+  Sequence?: number;
+  WorkInstruction?: string;
+  SetupTime?: number;
+  RunTime?: number;
+}
+
+/**
+ * Quality Inspection interface
+ */
+export interface WindchillQualityInspection extends WindchillObject {
+  InspectionType?: string;
+  Result?: string;
+  Inspector?: string;
+  InspectionDate?: string;
+}
+
+/**
+ * Nonconformance Report interface
+ */
+export interface WindchillNonconformance extends WindchillObject {
+  Severity?: string;
+  CorrectiveAction?: string;
+  RootCause?: string;
+}
+
+/**
+ * Visualization interface
+ */
+export interface WindchillVisualization extends WindchillObject {
+  SourceObject?: string;
+  ViewType?: string;
+  ThumbnailURL?: string;
+}
+
+/**
+ * Effectivity interface
+ */
+export interface WindchillEffectivity extends WindchillObject {
+  EffectivityType?: 'Date' | 'Unit';
+  StartDate?: string;
+  EndDate?: string;
+  StartUnit?: number;
+  EndUnit?: number;
+}
+
+/**
+ * Classification Node interface
+ */
+export interface WindchillClassificationNode extends WindchillObject {
+  ParentNode?: string;
+  ChildNodes?: string[];
+  Attributes?: Record<string, any>;
+}
+
+/**
+ * Saved Search interface
+ */
+export interface WindchillSavedSearch extends WindchillObject {
+  SearchCriteria?: string;
+  ObjectType?: string;
+  Owner?: string;
+  Shared?: boolean;
+}

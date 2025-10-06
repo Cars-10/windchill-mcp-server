@@ -14,6 +14,19 @@ import { WorkflowAgent } from './agents/workflow-agent.js';
 import { ProjectAgent } from './agents/project-agent.js';
 import { DataAdminAgent } from './agents/dataadmin-agent.js';
 import { ServerManagerAgent } from './agents/servermanager-agent.js';
+import { PrincipalMgmtAgent } from './agents/principalmgmt-agent.js';
+import { ProdPlatformMgmtAgent } from './agents/prodplatformmgmt-agent.js';
+import { NavCriteriaAgent } from './agents/navcriteria-agent.js';
+import { PartListMgmtAgent } from './agents/partlistmgmt-agent.js';
+import { ManufacturingAgent } from './agents/manufacturing-agent.js';
+import { QualityAgent } from './agents/quality-agent.js';
+import { VisualizationAgent } from './agents/visualization-agent.js';
+import { EffectivityMgmtAgent } from './agents/effectivitymgmt-agent.js';
+import { CADDocumentMgmtAgent } from './agents/caddocumentmgmt-agent.js';
+import { ClfStructureAgent } from './agents/clfstructure-agent.js';
+import { SavedSearchAgent } from './agents/savedsearch-agent.js';
+import { ServiceInfoMgmtAgent } from './agents/serviceinfomgmt-agent.js';
+import { PTCAgent } from './agents/ptc-agent.js';
 
 // Suppress npm warnings before loading anything
 process.env.NPM_CONFIG_LOGLEVEL = 'silent';
@@ -49,6 +62,7 @@ const server = new Server(
 // Initialize agents
 logger.info('Initializing MCP agents...');
 const agents = {
+  // Core domain agents
   part: new PartAgent(),
   change: new ChangeAgent(),
   document: new DocumentAgent(),
@@ -56,6 +70,25 @@ const agents = {
   project: new ProjectAgent(),
   dataadmin: new DataAdminAgent(),
   servermanager: new ServerManagerAgent(),
+
+  // New Tier 1 agents (High Priority)
+  principalmgmt: new PrincipalMgmtAgent(),
+  prodplatformmgmt: new ProdPlatformMgmtAgent(),
+  navcriteria: new NavCriteriaAgent(),
+  partlistmgmt: new PartListMgmtAgent(),
+
+  // New Tier 2 agents (Module-Specific)
+  manufacturing: new ManufacturingAgent(),
+  quality: new QualityAgent(),
+
+  // New Tier 3 agents (Specialized Features)
+  visualization: new VisualizationAgent(),
+  effectivitymgmt: new EffectivityMgmtAgent(),
+  caddocumentmgmt: new CADDocumentMgmtAgent(),
+  clfstructure: new ClfStructureAgent(),
+  savedsearch: new SavedSearchAgent(),
+  serviceinfomgmt: new ServiceInfoMgmtAgent(),
+  ptc: new PTCAgent(),
 };
 
 // Collect all tools from agents

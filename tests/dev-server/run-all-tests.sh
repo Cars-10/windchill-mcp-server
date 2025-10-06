@@ -21,6 +21,7 @@ NC='\033[0m'
 
 # Test suite list
 TEST_SUITES=(
+    # Core domain agents
     "01-part-agent-tests.sh"
     "02-document-agent-tests.sh"
     "03-change-agent-tests.sh"
@@ -28,6 +29,19 @@ TEST_SUITES=(
     "05-project-agent-tests.sh"
     "06-dataadmin-agent-tests.sh"
     "07-servermanager-agent-tests.sh"
+
+    # Tier 1 agents (High Priority)
+    "08-principalmgmt-agent-tests.sh"
+    "09-prodplatformmgmt-agent-tests.sh"
+    "10-navcriteria-agent-tests.sh"
+    "11-partlistmgmt-agent-tests.sh"
+
+    # Tier 2 agents (Module-Specific)
+    "12-manufacturing-agent-tests.sh"
+    "13-quality-agent-tests.sh"
+
+    # Tier 3 agents (Specialized Features)
+    "14-tier3-agents-tests.sh"
 )
 
 # Results tracking
