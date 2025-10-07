@@ -26,8 +26,9 @@
           </div>
 
           <!-- Server Status Badge -->
-          <span class="badge bg-success me-2" *ngIf="serverStatus === 'connected' && currentServer">
-            ✅ {{ currentServer.name }} Connected
+          <span class="badge bg-success me-2 d-flex flex-column align-items-center" *ngIf="serverStatus === 'connected' && currentServer">
+            <span>✅ {{ currentServer.name }} Connected</span>
+            <a [href]="currentServer.url" target="_blank" class="text-decoration-underline" style="font-size: 0.65rem; font-weight: normal; color: #6eb5ff;" title="Open Windchill Server">{{ currentServer.url }}</a>
           </span>
           <span class="badge bg-danger me-2" *ngIf="serverStatus === 'disconnected'">
             ❌ {{ currentServer?.name || 'Server' }} Disconnected
