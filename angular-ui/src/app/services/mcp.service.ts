@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { timeout } from 'rxjs/operators';
 
 export interface McpRequest {
   jsonrpc: '2.0';
@@ -48,18 +49,13 @@ export class McpService {
     };
 
     try {
-      const response = await Promise.race([
-        firstValueFrom(
-          this.http.post<McpResponse>(this.baseUrl, request, {
-            headers: new HttpHeaders({
-              'Content-Type': 'application/json'
-            })
+      const response = await firstValueFrom(
+        this.http.post<McpResponse>(this.baseUrl, request, {
+          headers: new HttpHeaders({
+            'Content-Type': 'application/json'
           })
-        ),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Request timeout')), 5000)
-        )
-      ]) as McpResponse;
+        }).pipe(timeout(5000))
+      );
 
       console.log('MCP protocol response:', response);
 
@@ -86,14 +82,9 @@ export class McpService {
   private async getToolsListDirect(): Promise<ToolsListResponse> {
     try {
       console.log('Attempting direct HTTP GET to /api/tools');
-      const response = await Promise.race([
-        firstValueFrom(
-          this.http.get<ToolsListResponse>(`${this.baseUrl}/tools`)
-        ),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Direct request timeout')), 5000)
-        )
-      ]) as ToolsListResponse;
+      const response = await firstValueFrom(
+        this.http.get<ToolsListResponse>(`${this.baseUrl}/tools`).pipe(timeout(5000))
+      );
 
       console.log('Direct HTTP response:', response);
 
@@ -135,18 +126,13 @@ export class McpService {
     });
 
     try {
-      const response = await Promise.race([
-        firstValueFrom(
-          this.http.post<McpResponse>(this.baseUrl, request, {
-            headers: new HttpHeaders({
-              'Content-Type': 'application/json'
-            })
+      const response = await firstValueFrom(
+        this.http.post<McpResponse>(this.baseUrl, request, {
+          headers: new HttpHeaders({
+            'Content-Type': 'application/json'
           })
-        ),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Tool execution timeout')), 15000)
-        )
-      ]) as McpResponse;
+        }).pipe(timeout(15000))
+      );
 
       console.log('=== RAW MCP RESPONSE DEBUG ===');
       console.log('Full response object:', response);
@@ -212,18 +198,13 @@ export class McpService {
       console.log('Parameters:', parameters);
       console.log('Direct HTTP URL:', `${this.baseUrl}/tools/${toolName}`);
 
-      const response = await Promise.race([
-        firstValueFrom(
-          this.http.post<any>(`${this.baseUrl}/tools/${toolName}`, parameters, {
-            headers: new HttpHeaders({
-              'Content-Type': 'application/json'
-            })
+      const response = await firstValueFrom(
+        this.http.post<any>(`${this.baseUrl}/tools/${toolName}`, parameters, {
+          headers: new HttpHeaders({
+            'Content-Type': 'application/json'
           })
-        ),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Tool execution timeout')), 15000)
-        )
-      ]) as any;
+        }).pipe(timeout(15000))
+      );
 
       console.log('=== Direct HTTP response received ===');
       console.log('Response status:', response?.status);

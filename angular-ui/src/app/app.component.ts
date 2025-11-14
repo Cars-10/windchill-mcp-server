@@ -41,15 +41,17 @@ export class AppComponent implements OnInit, OnDestroy {
   // Cache for tool parameters to prevent repeated computation
   cachedToolParameters: any[] = [];
 
+  private loadToolsCallId = 0;
+
   constructor(
     private mcpService: McpService,
     private cdr: ChangeDetectorRef
   ) {}
 
-  ngOnInit() {
+  async ngOnInit() {
     this.loadFilterPreferences();
-    this.loadAvailableServers();
-    this.loadTools();
+    await this.loadAvailableServers();
+    await this.loadTools();
   }
 
   ngOnDestroy() {
@@ -59,6 +61,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   async loadTools() {
+    const callId = ++this.loadToolsCallId;
     console.log('loadTools starting...');
     this.loading = true;
     this.serverStatus = 'disconnected';
@@ -112,6 +115,9 @@ export class AppComponent implements OnInit, OnDestroy {
         throw new Error('Invalid tools response format');
       }
 
+      if (callId !== this.loadToolsCallId) {
+        return;
+      }
       this.tools = response.tools.map((tool: any) => ({
         ...tool,
         agent: tool.name?.split('_')[0] || 'unknown',
@@ -132,7 +138,9 @@ export class AppComponent implements OnInit, OnDestroy {
 
       // Apply saved filter preferences after tools are loaded
       setTimeout(() => {
-        this.filterTools();
+        if (callId === this.loadToolsCallId) {
+          this.filterTools();
+        }
       }, 100);
     } catch (error: any) {
       console.error('Failed to load tools:', error);
@@ -733,60 +741,33 @@ export class AppComponent implements OnInit, OnDestroy {
   // Safe JSON display to prevent circular reference issues and performance problems
   safeJsonDisplay(data: any): string {
     try {
-      // Handle null/undefined
       if (data === null) return 'null';
       if (data === undefined) return 'undefined';
-
-      // Handle primitives
       if (typeof data !== 'object') {
         return String(data);
       }
-
-      // Use simplified JSON stringify with timeout protection
       const startTime = Date.now();
+      const seen = new WeakSet();
       const stringified = JSON.stringify(data, (key, value) => {
-        // Performance timeout check
         if (Date.now() - startTime > 1000) {
           throw new Error('JSON processing timeout');
         }
-
-        // Simple circular reference check
         if (typeof value === 'object' && value !== null) {
-          if (value.__visited) {
+          if (seen.has(value)) {
             return '[Circular Reference]';
           }
-          value.__visited = true;
+          seen.add(value);
         }
-
         return value;
       }, 2);
-
-      // Clean up visited markers
-      this.cleanupVisitedMarkers(data);
-
-      // Size limit
-      const maxLength = 5000; // Reduced to 5KB
+      const maxLength = 5000;
       if (stringified.length > maxLength) {
         return stringified.substring(0, maxLength) + '\n\n... [Response truncated for performance]';
       }
-
       return stringified;
     } catch (error: any) {
       console.warn('JSON display error:', error);
       return `[Display Error: ${error?.message || 'Cannot format response'}]\n\nRaw data type: ${typeof data}`;
-    }
-  }
-
-  private cleanupVisitedMarkers(obj: any, visited = new Set()) {
-    if (!obj || typeof obj !== 'object' || visited.has(obj)) return;
-
-    visited.add(obj);
-    delete obj.__visited;
-
-    for (const value of Object.values(obj)) {
-      if (typeof value === 'object' && value !== null) {
-        this.cleanupVisitedMarkers(value, visited);
-      }
     }
   }
 
