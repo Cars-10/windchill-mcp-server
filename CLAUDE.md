@@ -94,13 +94,16 @@ Each agent extends BaseAgent and defines its own tools with specific input schem
 
 ### Windchill API Integration
 - **WindchillAPIService** (`src/services/windchill-api.ts`): Centralized service for Windchill REST API communication
-- Uses Basic Authentication directly for all OData endpoints
+- **Multiple Authentication Methods**:
+  - **Basic Auth**: Username/password for simple authentication
+  - **Session-Based Auth**: Basic Auth + session cookies + CSRF tokens (default)
+  - **OAuth 2.0**: Client credentials grant with automatic token management
 - Implements comprehensive HTTP methods (GET, POST, PUT, PATCH, DELETE)
 - **Dynamic Configuration**: Supports switching servers at runtime via `updateServerConfig(serverId)`
-- Request/response interceptors for logging and error handling
+- Request/response interceptors for logging, cookie/token management, and error handling
 - Each request gets a unique ID for traceability
 - Automatically uses credentials from currently active server
-- No session-based authentication or CSRF token management required
+- **Automatic Token/Session Refresh**: Detects expired tokens and refreshes automatically
 
 ### MCP Server Architecture
 - **src/index.ts**: Main entry point that:
@@ -357,6 +360,306 @@ import { ToolDefinition, ToolStatus } from '../types/common.js';
   }
 }
 ```
+
+## Token Efficiency Best Practices
+
+This MCP server is optimized for LLM token efficiency using shared utilities in `src/utils/response-formatter.ts`. All agents should follow these patterns:
+
+### Response Format Options
+
+All tools should support two response formats via `response_format` parameter:
+
+```typescript
+import { ResponseFormat, FORMAT_SCHEMA_PROPS, buildListResponse } from '../utils/response-formatter.js';
+
+// Add to inputSchema.properties
+...FORMAT_SCHEMA_PROPS
+
+// Use in handler
+const responseFormat = params.response_format || ResponseFormat.MARKDOWN;
+```
+
+- **markdown** (default): Token-efficient, human-readable tables
+- **json**: Complete structured data for programmatic processing
+
+### Detail Levels
+
+Support `detail_level` parameter for controlling field inclusion:
+- **concise** (default): Essential fields only (5-7 fields per item)
+- **detailed**: All available fields
+
+### Pagination
+
+All list/search tools must support pagination with standardized metadata:
+
+```typescript
+import { STANDARD_LIST_SCHEMA_PROPS, buildODataPagination, buildListResponse } from '../utils/response-formatter.js';
+
+// Input schema
+properties: {
+  ...STANDARD_LIST_SCHEMA_PROPS,  // Adds limit, offset, response_format, detail_level
+  // ... tool-specific properties
+}
+
+// Handler
+const queryParams = buildODataPagination(params);  // Handles $top, $skip, $count
+
+// Response automatically includes:
+// { total, count, offset, limit, has_more, next_offset }
+```
+
+### Character Limits
+
+Responses exceeding `CHARACTER_LIMIT` (25,000 chars) are automatically truncated with helpful guidance:
+
+```typescript
+import { CHARACTER_LIMIT, applyTruncation } from '../utils/response-formatter.js';
+
+// Truncation message example:
+// "Response truncated from 500 to 100 items. Use 'limit' and 'offset' or add filters."
+```
+
+### Tool Annotations
+
+All tools must include MCP annotations for client UX:
+
+```typescript
+import { ToolAnnotations } from '../types/common.js';
+
+// Read-only tools (search, get, list)
+annotations: {
+  title: 'Search Parts',
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: true
+}
+
+// Write tools (create, update)
+annotations: {
+  title: 'Create Part',
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: false,
+  openWorldHint: true
+}
+
+// Destructive tools (delete, remove)
+annotations: {
+  title: 'Remove BOM Component',
+  readOnlyHint: false,
+  destructiveHint: true,
+  idempotentHint: false,
+  openWorldHint: true
+}
+```
+
+### Comprehensive Tool Descriptions
+
+Tool descriptions must include:
+- Brief summary of what the tool does
+- Parameter documentation with examples
+- Return schema for both formats
+- Usage examples (when to use, when not to use)
+- Error handling guidance
+
+Example:
+```typescript
+description: `Search for parts by number, name, or type.
+
+**Parameters:**
+- number: Part number with wildcards (e.g., "PRT*")
+- limit: Max results (1-100, default: 20)
+- response_format: 'markdown' or 'json'
+
+**Returns (markdown):**
+| Number | Name | Type | State | Version |
+
+**Returns (json):**
+{ data: [...], pagination: { total, has_more, next_offset } }
+
+**Examples:**
+- Find by prefix: { "number": "PRT*" }
+- Paginate: { "offset": 20, "limit": 20 }
+
+**Error handling:**
+- Empty results: Returns suggestions for broader search`
+```
+
+### Reference Implementation
+
+See `src/agents/part-agent.ts` as the reference implementation for all token efficiency patterns.
+
+---
+
+## Authentication Methods
+
+The Windchill MCP server supports three authentication methods, configurable per server via `WINDCHILL_AUTH_METHOD_{N}`:
+
+### 1. Basic Authentication (`auth_method: basic`)
+Simple username/password authentication without sessions or tokens.
+- **Pros**: Simple, no token management
+- **Cons**: Cannot use action endpoints that require CSRF tokens
+- **Use When**: Testing, read-only operations, or when Windchill doesn't require CSRF
+
+### 2. Session-Based Authentication (`auth_method: session`) - **DEFAULT**
+Basic Auth + session cookies + automatic CSRF token management.
+- **Pros**: Full support for all endpoints including actions
+- **Cons**: Requires session management overhead
+- **Use When**: Production use with full Windchill API access
+
+### 3. OAuth 2.0 Authentication (`auth_method: oauth`)
+Modern OAuth 2.0 with client credentials grant and automatic token refresh.
+- **Pros**: Industry standard, more secure, automatic token expiry handling
+- **Cons**: Requires OAuth 2.0 configuration in Windchill
+- **Use When**: Enterprise deployments with OAuth infrastructure
+
+---
+
+## OAuth 2.0 Configuration
+
+### Windchill OAuth 2.0 Setup
+
+Before using OAuth authentication, you must configure OAuth 2.0 in your Windchill server:
+
+1. **Register OAuth Client** in Windchill Administration
+   - Navigate to: Site → Utilities → OAuth Application Management
+   - Create new OAuth application with:
+     - **Grant Type**: Client Credentials
+     - **Scope**: `odata` (for REST Services access)
+   - Note the generated `client_id` and `client_secret`
+
+2. **Configure Token Endpoint**
+   - Default: `{WINDCHILL_URL}/oauth2/token`
+   - Verify endpoint availability in your Windchill version
+
+### Environment Configuration
+
+Add OAuth credentials to `.env` or Claude Desktop config:
+
+```bash
+# Server with OAuth 2.0
+WINDCHILL_URL_1=https://plm.windchill.com/Windchill
+WINDCHILL_NAME_1=Production PLM
+WINDCHILL_AUTH_METHOD_1=oauth
+WINDCHILL_OAUTH_CLIENT_ID_1=your-oauth-client-id
+WINDCHILL_OAUTH_CLIENT_SECRET_1=your-oauth-client-secret
+WINDCHILL_OAUTH_TOKEN_URL_1=https://plm.windchill.com/Windchill/oauth2/token  # Optional
+```
+
+### OAuth 2.0 Implementation Details
+
+**Token Fetching** (windchill-api.ts:224-281):
+- Uses OAuth 2.0 Client Credentials Grant
+- POST to token endpoint with `grant_type=client_credentials`
+- Requests `odata` scope for REST Services access
+- Stores access_token and optional refresh_token
+
+**Automatic Token Management** (windchill-api.ts:286-297):
+- Checks token expiry before each request
+- Automatically refreshes expired tokens (60-second buffer)
+- No manual token management required
+
+**Request Authentication** (windchill-api.ts:109-113):
+- Adds `Authorization: Bearer {access_token}` header
+- No session cookies or CSRF tokens needed
+
+### OAuth Diagnostic Logging
+
+OAuth operations are logged at INFO level in `logs/windchill-api-*.log`:
+```
+[INFO]: Fetching OAuth 2.0 access token | tokenUrl: https://...
+[INFO]: OAuth 2.0 access token obtained successfully | expiresIn: 3600
+[INFO]: OAuth token expired or missing, fetching new token
+```
+
+---
+
+## Session-Based CSRF Token Support (Default)
+
+### Overview
+The Windchill MCP server's default authentication method is **session-based with automatic CSRF token management**. This enables full support for Windchill REST Actions like `GetPartStructure`, `Checkout`, `Checkin`, etc.
+
+### How It Works
+
+1. **Automatic Session Establishment**
+   - When a POST/PUT/DELETE request requires a CSRF token, the service automatically establishes a session
+   - Makes an initial GET request to `/servlet/odata/` to obtain session cookies
+   - Captures `Set-Cookie` headers and stores them for subsequent requests
+
+2. **Cookie Management**
+   - Session cookies are automatically attached to all requests via `Cookie` header
+   - Cookies are updated when Windchill sends new `Set-Cookie` headers
+   - Each server has its own isolated session state
+
+3. **CSRF Token Fetching**
+   - After session establishment, requests CSRF token with `X-CSRF-Token: fetch` header
+   - With session cookies present, Windchill returns a valid CSRF token
+   - Token is cached and reused for subsequent requests
+
+4. **Automatic Session Refresh**
+   - Detects `INVALID_NONCE` errors (expired/invalid CSRF tokens)
+   - Automatically clears session state and re-establishes session
+   - Retries the failed request with new session and CSRF token
+
+### Implementation Details
+
+**Session State** (windchill-api.ts:11-12):
+```typescript
+private sessionCookies: string[] = [];
+private sessionEstablished: boolean = false;
+```
+
+**Session Establishment** (windchill-api.ts:303-364):
+- Called automatically before CSRF token fetch
+- Makes GET request to OData root
+- Captures and stores session cookies
+
+**PTC CSRF Token Fetching** (windchill-api.ts:370-419):
+- Uses PTC-specific endpoint: `GET /PTC/GetCSRFToken()`
+- Receives token in response body: `{ NonceKey, NonceValue }`
+- Stores `NonceValue` for subsequent requests
+- Automatic retry on token expiry
+
+**Cookie Injection** (windchill-api.ts:127-133):
+- Request interceptor adds `Cookie` header with session cookies
+- Logs cookie count for debugging
+
+**CSRF Token Injection** (windchill-api.ts:490-504):
+- POST/PUT/PATCH/DELETE requests include `CSRF_NONCE` header
+- PTC Windchill uses `CSRF_NONCE` (not `X-CSRF-Token`)
+- Token automatically refreshed on `INVALID_NONCE` errors
+
+**Cookie Capture** (windchill-api.ts:140-164):
+- Response interceptor captures `Set-Cookie` headers
+- Updates session cookie store
+- Merges new cookies with existing ones
+
+**Session Refresh** (windchill-api.ts:341-356):
+- Clears all session state
+- Re-establishes session and fetches new CSRF token
+- Triggered on `INVALID_NONCE` errors
+
+### Diagnostic Logging
+
+Session operations are logged at INFO level in `logs/windchill-api-*.log`:
+```
+[INFO]: Establishing session with Windchill
+[INFO]: Session established successfully | cookieCount: 2
+[INFO]: Fetching CSRF token from PTC GetCSRFToken endpoint
+[INFO]: CSRF token successfully retrieved from PTC endpoint | nonceKey: ... | tokenLength: 36
+[INFO]: POST request with CSRF_NONCE token
+[WARN]: CSRF token error (INVALID_NONCE), refreshing session
+[INFO]: Retrying POST with refreshed session and CSRF_NONCE token
+```
+
+### Alternative: OData Navigation Properties
+
+For simple BOM queries, you can still use CSRF-free OData navigation:
+- `part_get_bom_components` uses `$expand=Uses($expand=Child)`
+- No session or CSRF tokens required
+- Limited to single-level BOM retrieval
+- See part-agent.ts:343-383 for implementation
 
 ## Adding New Functionality
 

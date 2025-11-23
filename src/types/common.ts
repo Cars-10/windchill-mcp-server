@@ -3,6 +3,23 @@
  */
 
 /**
+ * Tool annotations for MCP clients
+ * These provide hints about tool behavior for better UX
+ */
+export interface ToolAnnotations {
+  /** Human-readable title for the tool */
+  title?: string;
+  /** If true, the tool does not modify its environment */
+  readOnlyHint?: boolean;
+  /** If true, the tool may perform destructive updates */
+  destructiveHint?: boolean;
+  /** If true, repeated calls with same args have no additional effect */
+  idempotentHint?: boolean;
+  /** If true, tool interacts with external entities */
+  openWorldHint?: boolean;
+}
+
+/**
  * Tool definition for MCP agents
  */
 export interface ToolDefinition {
@@ -10,6 +27,8 @@ export interface ToolDefinition {
   description: string;
   inputSchema: JSONSchema;
   handler: ToolHandler;
+  /** Optional annotations providing hints about tool behavior */
+  annotations?: ToolAnnotations;
 }
 
 /**

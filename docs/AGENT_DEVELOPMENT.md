@@ -942,6 +942,88 @@ describe('MyDomain Integration Tests', () => {
 
 ## Best Practices
 
+### 0. Token Efficiency (IMPORTANT)
+
+All tools should implement token-efficient response formatting using the shared utilities in `src/utils/response-formatter.ts`:
+
+```typescript
+import {
+  STANDARD_LIST_SCHEMA_PROPS,
+  FORMAT_SCHEMA_PROPS,
+  buildListResponse,
+  buildSingleItemResponse,
+  buildErrorResponse,
+  buildODataPagination,
+  buildTextFilter,
+  combineFilters
+} from '../utils/response-formatter.js';
+import { ToolDefinition, ToolAnnotations } from '../types/common.js';
+
+// Standard annotations for read-only operations
+const READ_ONLY: ToolAnnotations = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: true
+};
+
+// Example token-efficient tool
+{
+  name: 'list_items',
+  description: `List items with filtering.
+
+**Parameters:** name (wildcards), state, limit/offset, response_format
+**Example:** { "name": "Widget*", "limit": 20 }`,
+  inputSchema: {
+    type: 'object',
+    properties: {
+      name: { type: 'string', description: 'Item name filter' },
+      state: { type: 'string', description: 'Lifecycle state' },
+      ...STANDARD_LIST_SCHEMA_PROPS  // Includes limit, offset, response_format, detail_level
+    },
+    required: []
+  },
+  annotations: { title: 'List Items', ...READ_ONLY },
+  handler: async (params: any) => {
+    try {
+      const filters: string[] = [];
+      if (params.name) filters.push(buildTextFilter('Name', params.name));
+      if (params.state) filters.push(`State eq '${params.state}'`);
+
+      const queryParams = buildODataPagination(params);
+      if (filters.length > 0) queryParams.append('$filter', combineFilters(filters));
+
+      const response = await this.api.get(`/endpoint?${queryParams.toString()}`);
+
+      return buildListResponse(response.data, params, {
+        title: 'Items',
+        conciseFields: ['ID', 'Name', 'State'],
+        markdownColumns: { Name: 'Name', State: 'State' }
+      });
+    } catch (error) {
+      return buildErrorResponse(error, { operation: 'list items' });
+    }
+  }
+}
+```
+
+**Key Token Efficiency Features:**
+- **Response formats**: `markdown` (default, token-efficient) or `json` (complete data)
+- **Detail levels**: `concise` (essential fields) or `detailed` (all fields)
+- **Pagination metadata**: `has_more`, `next_offset`, `total_count` for smart iteration
+- **Character limits**: 25,000 char limit with graceful truncation
+- **Wildcard support**: `buildTextFilter()` handles `*` wildcards automatically
+- **Tool annotations**: MCP-compliant hints for clients
+
+**Available Schema Properties:**
+- `STANDARD_LIST_SCHEMA_PROPS`: limit, offset, response_format, detail_level
+- `FORMAT_SCHEMA_PROPS`: response_format, detail_level (for single-item tools)
+
+**Response Builders:**
+- `buildListResponse()`: For list/search operations with pagination
+- `buildSingleItemResponse()`: For get/detail operations
+- `buildErrorResponse()`: For consistent error formatting
+
 ### 1. Error Handling
 
 ```typescript

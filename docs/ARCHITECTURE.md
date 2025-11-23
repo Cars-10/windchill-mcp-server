@@ -69,6 +69,42 @@ The Windchill MCP Server follows a modular, agent-based architecture that provid
 
 ## Core Components
 
+### 0. Response Formatter (`src/utils/response-formatter.ts`)
+
+The centralized utility module for token-efficient responses:
+
+```typescript
+// Key exports
+export enum ResponseFormat { MARKDOWN = 'markdown', JSON = 'json' }
+export enum DetailLevel { CONCISE = 'concise', DETAILED = 'detailed' }
+
+// Constants
+export const CHARACTER_LIMIT = 25000;
+export const DEFAULT_LIMIT = 20;
+export const MAX_LIMIT = 100;
+
+// Schema property spreads
+export const STANDARD_LIST_SCHEMA_PROPS = { /* limit, offset, response_format, detail_level */ };
+export const FORMAT_SCHEMA_PROPS = { /* response_format, detail_level */ };
+
+// Response builders
+export function buildListResponse(rawResponse, params, options): string;
+export function buildSingleItemResponse(rawResponse, params, options): string;
+export function buildErrorResponse(error, context): string;
+
+// OData utilities
+export function buildODataPagination(params): URLSearchParams;
+export function buildTextFilter(fieldName, value): string;  // Wildcard support
+export function combineFilters(filters): string;
+```
+
+**Token Efficiency Features:**
+- **Markdown formatting**: Human-readable, LLM-efficient table output
+- **Smart pagination**: `has_more`, `next_offset`, `total_count` metadata
+- **Field filtering**: Concise mode shows only essential fields
+- **Character limits**: 25,000 char limit with graceful truncation
+- **Wildcard support**: `*` patterns converted to OData `contains()` filters
+
 ### 1. MCP Server (`src/index.ts`)
 
 The main server orchestrates the entire system:
@@ -150,34 +186,37 @@ export class WindchillAPIService {
 
 ## Agent Architecture
 
-### Agent Hierarchy
+### Agent Hierarchy (20 Agents, 180+ Tools)
 
 ```
 BaseAgent (Abstract)
-├── PartAgent (4 tools)
-│   ├── search: Search parts by criteria
-│   ├── get: Retrieve part details
-│   ├── create: Create new parts
-│   └── get_structure: Get BOM structure
-├── DocumentAgent (25 tools) ⭐ Most comprehensive
-│   ├── Priority 1: Core Lifecycle (8 tools)
-│   │   ├── create, update, checkout, checkin, revise
-│   │   └── get_version_history, get_iterations, set_iteration_note
-│   ├── Priority 2: Content & Relationships (9 tools)
-│   │   ├── upload_content, download_content, get_content_info
-│   │   ├── add_attachment, get_attachments, download_attachment
-│   │   └── add_reference, get_references, get_referencing, remove_reference
-│   └── Priority 3: Advanced Search & Bulk Operations (8 tools)
-│       ├── advanced_search, search_by_creator, search_by_lifecycle
-│       ├── search_by_date_range, search_related
-│       └── bulk_update, bulk_lifecycle_action
-├── ChangeAgent
-│   └── Change request management tools
-├── WorkflowAgent
-│   └── Workflow item management tools
-└── ProjectAgent
-    └── Project management tools
+├── Core Domain Agents
+│   ├── PartAgent (16 tools) - Part management, BOM, searches
+│   ├── DocumentAgent (25 tools) ⭐ - Full document lifecycle
+│   ├── ChangeAgent (16 tools) - Change request management
+│   ├── WorkflowAgent (16 tools) - Workflow processes
+│   ├── ProjectAgent (17 tools) - Project management
+│   ├── DataAdminAgent (13 tools) - Container/context management
+│   └── ServerManagerAgent (5 tools) - Multi-server switching
+├── Tier 1 Agents (High Priority)
+│   ├── PrincipalMgmtAgent (16 tools) - Users, groups, teams
+│   ├── ProdPlatformMgmtAgent (12 tools) - Options & Variants
+│   ├── NavCriteriaAgent (8 tools) - BOM navigation filters
+│   └── PartListMgmtAgent (10 tools) - Parts lists/favorites
+├── Tier 2 Agents (Module-Specific)
+│   ├── ManufacturingAgent (6 tools) - MPMLink required
+│   └── QualityAgent (6 tools) - QMS required
+└── Tier 3 Agents (Specialized)
+    ├── VisualizationAgent (3 tools) - Creo View services
+    ├── EffectivityMgmtAgent (2 tools) - Date/unit effectivity
+    ├── CADDocumentMgmtAgent (2 tools) - CAD documents
+    ├── ClfStructureAgent (2 tools) - Classification
+    ├── SavedSearchAgent (3 tools) - Saved searches
+    ├── ServiceInfoMgmtAgent (2 tools) - Technical publications
+    └── PTCAgent (2 tools) - Common utilities
 ```
+
+**All agents implement token-efficient responses using `response-formatter.ts`.**
 
 ### Tool Structure
 

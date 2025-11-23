@@ -1,38 +1,124 @@
+/**
+ * @fileoverview NavCriteria Agent - Token-Efficient MCP Tools for Windchill Navigation Criteria
+ *
+ * This agent provides tools for managing BOM navigation criteria and structure filters
+ * in the Windchill PLM system, optimized for LLM token efficiency.
+ *
+ * Features:
+ * - Response format options (markdown/json)
+ * - Detail levels (concise/detailed)
+ * - Pagination with has_more, next_offset, total_count
+ * - Character limit enforcement with truncation
+ * - Tool annotations for MCP clients
+ * - Comprehensive descriptions with usage examples
+ *
+ * **Note:** Navigation Criteria are used to filter BOM structures based on various rules
+ * such as lifecycle state, effectivity, or custom attributes. This domain is typically
+ * read-only in Windchill 13.0.2 OData.
+ */
+
 import { BaseAgent } from './base-agent.js';
 import { apiEndpoints } from '../config/windchill.js';
-import { ToolParams, ToolResult } from '../types/common.js';
+import { ToolDefinition, ToolAnnotations } from '../types/common.js';
+import {
+  ResponseFormat,
+  STANDARD_LIST_SCHEMA_PROPS,
+  FORMAT_SCHEMA_PROPS,
+  buildListResponse,
+  buildSingleItemResponse,
+  buildErrorResponse,
+  buildODataPagination,
+  combineFilters,
+  DEFAULT_LIMIT,
+  MAX_LIMIT
+} from '../utils/response-formatter.js';
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
+/** Concise fields for navigation criteria */
+const CRITERIA_CONCISE_FIELDS = ['ID', 'Name', 'FilterType', 'Description', 'Container'] as const;
+
+/** Markdown column definitions for navigation criteria tables */
+const CRITERIA_MARKDOWN_COLUMNS = {
+  Name: 'Name',
+  FilterType: 'Filter Type',
+  Description: 'Description',
+  Container: 'Container'
+};
+
+/** Concise fields for filter expression responses */
+const FILTER_EXPRESSION_FIELDS = ['ID', 'Expression', 'Type', 'Name'] as const;
+
+/** Markdown columns for filter expressions */
+const FILTER_EXPRESSION_COLUMNS = {
+  Name: 'Name',
+  Type: 'Type',
+  Expression: 'Expression'
+};
+
+// ============================================================================
+// TOOL ANNOTATIONS
+// ============================================================================
+
+/** All navigation criteria tools are read-only */
+const READ_ONLY_ANNOTATIONS: ToolAnnotations = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: true
+};
+
+// ============================================================================
+// NAVCRITERIA AGENT
+// ============================================================================
 
 /**
  * NavCriteriaAgent provides tools for managing BOM navigation criteria and structure filters.
  *
- * This agent exposes the PTC Navigation Criteria Domain capabilities for filtering and
- * configuring how part structures (BOMs) are viewed and navigated.
+ * All tools support:
+ * - `response_format`: 'markdown' (default, token-efficient) or 'json' (complete)
+ * - `detail_level`: 'concise' (default, essential fields) or 'detailed' (all fields)
+ * - Pagination with `limit` and `offset` parameters
  *
- * **Priority 1 - Navigation Criteria Management:**
- * - list_nav_criteria: List all navigation criteria
- * - get_nav_criteria: Get detailed navigation criteria information
- * - search_nav_criteria: Search navigation criteria by name
+ * Navigation criteria are used to filter how part structures (BOMs) are viewed and navigated.
  *
- * **Priority 2 - Filter Configuration:**
- * - get_filter_expression: Get the filter expression for a navigation criteria
- * - list_filter_types: List available filter types
- *
- * **Priority 3 - Application & Usage:**
- * - get_applied_criteria: Get navigation criteria applied to a part structure
- * - get_default_criteria: Get default navigation criteria for a container
- *
- * **Note:** Navigation Criteria are used to filter BOM structures based on various rules
- * such as lifecycle state, effectivity, or custom attributes. This domain is typically
- * read-only in Windchill 13.0.2 OData. Creation/modification requires admin tools.
+ * @extends BaseAgent
  */
 export class NavCriteriaAgent extends BaseAgent {
   protected agentName = 'navcriteria';
 
-  protected tools = [
-    // === PRIORITY 1: NAVIGATION CRITERIA MANAGEMENT ===
+  protected tools: ToolDefinition[] = [
+    // =========================================================================
+    // PRIORITY 1: NAVIGATION CRITERIA MANAGEMENT
+    // =========================================================================
+
     {
       name: 'list_nav_criteria',
-      description: 'List all navigation criteria available in the Windchill system',
+      description: `List all navigation criteria available in the Windchill system.
+
+**Parameters:**
+- name: Filter by criteria name (partial match with contains)
+- filterType: Filter by type (e.g., "LifecycleState", "Effectivity", "Custom")
+- container: Filter by container/context OID
+- limit: Max results (1-${MAX_LIMIT}, default: ${DEFAULT_LIMIT})
+- offset: Skip N results for pagination
+- response_format: 'markdown' (default) or 'json'
+- detail_level: 'concise' (default) or 'detailed'
+
+**Returns (markdown):**
+| Name | Filter Type | Description | Container |
+Pagination info with has_more and next_offset
+
+**Returns (json):**
+{ data: [...], pagination: { total, count, offset, limit, has_more, next_offset } }
+
+**Examples:**
+- List all: { }
+- Filter by type: { "filterType": "LifecycleState" }
+- Filter by name: { "name": "Released", "limit": 10 }
+- Paginate: { "offset": 20, "limit": 20 }`,
       inputSchema: {
         type: 'object',
         properties: {
@@ -48,54 +134,72 @@ export class NavCriteriaAgent extends BaseAgent {
             type: 'string',
             description: 'Filter by container/context OID'
           },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of results to return'
-          },
-          select: {
-            type: 'string',
-            description: 'Comma-separated list of properties to return'
-          }
+          ...STANDARD_LIST_SCHEMA_PROPS
         },
         required: []
       },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const queryParams = new URLSearchParams();
-        const filters = [];
+      annotations: {
+        title: 'List Navigation Criteria',
+        ...READ_ONLY_ANNOTATIONS
+      },
+      handler: async (params: any) => {
+        try {
+          const filters: string[] = [];
 
-        if (params.name) {
-          filters.push(`contains(Name,'${params.name}')`);
+          if (params.name) {
+            filters.push(`contains(Name,'${params.name}')`);
+          }
+
+          if (params.filterType) {
+            filters.push(`FilterType eq '${params.filterType}'`);
+          }
+
+          if (params.container) {
+            filters.push(`Container eq '${params.container}'`);
+          }
+
+          const queryParams = buildODataPagination(params);
+          if (filters.length > 0) {
+            queryParams.append('$filter', combineFilters(filters));
+          }
+
+          const response = await this.api.get(
+            `${apiEndpoints.navCriteria}?${queryParams.toString()}`
+          );
+
+          return buildListResponse(response.data, params, {
+            title: 'Navigation Criteria',
+            conciseFields: CRITERIA_CONCISE_FIELDS,
+            markdownColumns: CRITERIA_MARKDOWN_COLUMNS
+          });
+        } catch (error) {
+          return buildErrorResponse(error, {
+            operation: 'list navigation criteria',
+            suggestion: 'Check filter syntax. Valid filterTypes include "LifecycleState", "Effectivity", "Custom".'
+          });
         }
-
-        if (params.filterType) {
-          filters.push(`FilterType eq '${params.filterType}'`);
-        }
-
-        if (params.container) {
-          filters.push(`Container eq '${params.container}'`);
-        }
-
-        if (filters.length > 0) {
-          queryParams.append('$filter', filters.join(' and '));
-        }
-
-        if (params.limit) {
-          queryParams.append('$top', String(params.limit));
-        }
-
-        if (params.select) {
-          queryParams.append('$select', String(params.select));
-        }
-
-        const response = await this.api.get(
-          `${apiEndpoints.navCriteria}?${queryParams.toString()}`
-        );
-        return response.data;
       }
     },
+
     {
       name: 'get_nav_criteria',
-      description: 'Get detailed information for a specific navigation criteria',
+      description: `Get detailed information for a specific navigation criteria by ID.
+
+**Parameters:**
+- criteriaId (required): Navigation criteria OID
+- expand: Navigation properties to expand (e.g., "FilterExpression")
+- response_format: 'markdown' (default) or 'json'
+- detail_level: 'concise' (default) or 'detailed'
+
+**Returns:** Navigation criteria details including Name, FilterType, Description, and optionally expanded properties.
+
+**Examples:**
+- Get criteria: { "criteriaId": "OR:wt.query.nav.NavigationCriteria:12345" }
+- With expansion: { "criteriaId": "OR:...:12345", "expand": "FilterExpression" }
+- Detailed view: { "criteriaId": "OR:...:12345", "detail_level": "detailed" }
+
+**Error handling:**
+- Not found: Returns error with suggestion to search first`,
       inputSchema: {
         type: 'object',
         properties: {
@@ -106,29 +210,66 @@ export class NavCriteriaAgent extends BaseAgent {
           expand: {
             type: 'string',
             description: 'Navigation properties to expand (e.g., "FilterExpression")'
-          }
+          },
+          ...FORMAT_SCHEMA_PROPS
         },
         required: ['criteriaId']
       },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const queryParams = new URLSearchParams();
+      annotations: {
+        title: 'Get Navigation Criteria Details',
+        ...READ_ONLY_ANNOTATIONS
+      },
+      handler: async (params: any) => {
+        try {
+          const queryParams = new URLSearchParams();
 
-        if (params.expand) {
-          queryParams.append('$expand', String(params.expand));
+          if (params.expand) {
+            queryParams.append('$expand', String(params.expand));
+          }
+
+          const queryString = queryParams.toString();
+          const url = queryString
+            ? `${apiEndpoints.navCriteria}('${params.criteriaId}')?${queryString}`
+            : `${apiEndpoints.navCriteria}('${params.criteriaId}')`;
+
+          const response = await this.api.get(url);
+
+          return buildSingleItemResponse(response.data, params, {
+            title: `Navigation Criteria: ${response.data?.Name || params.criteriaId}`,
+            conciseFields: CRITERIA_CONCISE_FIELDS
+          });
+        } catch (error) {
+          return buildErrorResponse(error, {
+            operation: 'get navigation criteria',
+            suggestion: 'Verify the criteria ID. Use list_nav_criteria to find valid IDs.'
+          });
         }
-
-        const queryString = queryParams.toString();
-        const url = queryString
-          ? `${apiEndpoints.navCriteria}('${params.criteriaId}')?${queryString}`
-          : `${apiEndpoints.navCriteria}('${params.criteriaId}')`;
-
-        const response = await this.api.get(url);
-        return response.data;
       }
     },
+
     {
       name: 'search_nav_criteria',
-      description: 'Search for navigation criteria by name or description',
+      description: `Search for navigation criteria by name or description with token-efficient responses.
+
+**Parameters:**
+- query (required): Search query for criteria name or description (matches both)
+- filterType: Filter by specific type
+- limit: Max results (1-${MAX_LIMIT}, default: ${DEFAULT_LIMIT})
+- offset: Skip N results for pagination
+- response_format: 'markdown' (default) or 'json'
+- detail_level: 'concise' (default) or 'detailed'
+
+**Returns (markdown):**
+| Name | Filter Type | Description | Container |
+Pagination info with has_more and next_offset
+
+**Examples:**
+- Search by name: { "query": "Released" }
+- Search with filter: { "query": "Design", "filterType": "LifecycleState" }
+- Paginate results: { "query": "BOM", "limit": 10, "offset": 0 }
+
+**Error handling:**
+- Empty results: Returns helpful message with search suggestions`,
       inputSchema: {
         type: 'object',
         properties: {
@@ -140,87 +281,191 @@ export class NavCriteriaAgent extends BaseAgent {
             type: 'string',
             description: 'Filter by specific type'
           },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of results to return'
-          }
+          ...STANDARD_LIST_SCHEMA_PROPS
         },
         required: ['query']
       },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const queryParams = new URLSearchParams();
-        const filters = [`(contains(Name,'${params.query}') or contains(Description,'${params.query}'))`];
+      annotations: {
+        title: 'Search Navigation Criteria',
+        ...READ_ONLY_ANNOTATIONS
+      },
+      handler: async (params: any) => {
+        try {
+          const filters: string[] = [
+            `(contains(Name,'${params.query}') or contains(Description,'${params.query}'))`
+          ];
 
-        if (params.filterType) {
-          filters.push(`FilterType eq '${params.filterType}'`);
+          if (params.filterType) {
+            filters.push(`FilterType eq '${params.filterType}'`);
+          }
+
+          const queryParams = buildODataPagination(params);
+          queryParams.append('$filter', combineFilters(filters));
+
+          const response = await this.api.get(
+            `${apiEndpoints.navCriteria}?${queryParams.toString()}`
+          );
+
+          return buildListResponse(response.data, params, {
+            title: `Navigation Criteria Search: "${params.query}"`,
+            conciseFields: CRITERIA_CONCISE_FIELDS,
+            markdownColumns: CRITERIA_MARKDOWN_COLUMNS
+          });
+        } catch (error) {
+          return buildErrorResponse(error, {
+            operation: 'search navigation criteria',
+            suggestion: 'Try a different search term. Use list_nav_criteria to see all available criteria.'
+          });
         }
-
-        queryParams.append('$filter', filters.join(' and '));
-
-        if (params.limit) {
-          queryParams.append('$top', String(params.limit));
-        }
-
-        const response = await this.api.get(
-          `${apiEndpoints.navCriteria}?${queryParams.toString()}`
-        );
-        return response.data;
       }
     },
 
-    // === PRIORITY 2: FILTER CONFIGURATION ===
+    // =========================================================================
+    // PRIORITY 2: FILTER CONFIGURATION
+    // =========================================================================
+
     {
       name: 'get_filter_expression',
-      description: 'Get the filter expression for a specific navigation criteria',
+      description: `Get the filter expression details for a specific navigation criteria.
+
+Filter expressions define the actual rules that control how BOM structures are filtered
+(e.g., lifecycle state filters, effectivity rules, custom attribute filters).
+
+**Parameters:**
+- criteriaId (required): Navigation criteria OID
+- response_format: 'markdown' (default) or 'json'
+- detail_level: 'concise' (default) or 'detailed'
+
+**Returns:** Filter expression details including the expression logic and type.
+
+**Examples:**
+- Get expression: { "criteriaId": "OR:wt.query.nav.NavigationCriteria:12345" }
+- JSON format: { "criteriaId": "OR:...:12345", "response_format": "json" }
+
+**Error handling:**
+- Not found: Returns error if criteria has no filter expression defined`,
       inputSchema: {
         type: 'object',
         properties: {
           criteriaId: {
             type: 'string',
             description: 'Navigation criteria OID'
-          }
+          },
+          ...FORMAT_SCHEMA_PROPS
         },
         required: ['criteriaId']
       },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const response = await this.api.get(
-          `${apiEndpoints.navCriteria}('${params.criteriaId}')/FilterExpression`
-        );
-        return response.data;
+      annotations: {
+        title: 'Get Filter Expression',
+        ...READ_ONLY_ANNOTATIONS
+      },
+      handler: async (params: any) => {
+        try {
+          const response = await this.api.get(
+            `${apiEndpoints.navCriteria}('${params.criteriaId}')/FilterExpression`
+          );
+
+          return buildSingleItemResponse(response.data, params, {
+            title: `Filter Expression for: ${params.criteriaId}`,
+            conciseFields: FILTER_EXPRESSION_FIELDS
+          });
+        } catch (error) {
+          return buildErrorResponse(error, {
+            operation: 'get filter expression',
+            suggestion: 'Verify the criteria ID has a filter expression. Not all criteria have expressions defined.'
+          });
+        }
       }
     },
+
     {
       name: 'list_filter_types',
-      description: 'List all available filter types for navigation criteria (EXPERIMENTAL)',
+      description: `List all available filter types for navigation criteria (EXPERIMENTAL).
+
+Filter types define the categories of filters that can be applied to BOM navigation,
+such as LifecycleState, Effectivity, or Custom attribute filters.
+
+**Parameters:**
+- limit: Max results (1-${MAX_LIMIT}, default: ${DEFAULT_LIMIT})
+- offset: Skip N results for pagination
+- response_format: 'markdown' (default) or 'json'
+- detail_level: 'concise' (default) or 'detailed'
+
+**Returns:** List of available filter types with descriptions.
+
+**Examples:**
+- List all types: { }
+- With pagination: { "limit": 10, "offset": 0 }
+
+**Note:** This endpoint may not be available in all Windchill 13.0.2 configurations.
+
+**Error handling:**
+- Not available: Returns error if FilterTypes endpoint is not supported`,
       inputSchema: {
         type: 'object',
         properties: {
-          limit: {
-            type: 'number',
-            description: 'Maximum number of filter types to return'
-          }
+          ...STANDARD_LIST_SCHEMA_PROPS
         },
         required: []
       },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const queryParams = new URLSearchParams();
+      annotations: {
+        title: 'List Filter Types (Experimental)',
+        ...READ_ONLY_ANNOTATIONS
+      },
+      handler: async (params: any) => {
+        try {
+          const queryParams = buildODataPagination(params);
 
-        if (params.limit) {
-          queryParams.append('$top', String(params.limit));
+          // Note: This endpoint may not be available in standard Windchill 13.0.2
+          const response = await this.api.get(
+            `${apiEndpoints.navCriteria}/FilterTypes?${queryParams.toString()}`
+          );
+
+          return buildListResponse(response.data, params, {
+            title: 'Navigation Criteria Filter Types',
+            conciseFields: ['Name', 'Description', 'ID'],
+            markdownColumns: {
+              Name: 'Name',
+              Description: 'Description',
+              ID: 'ID'
+            }
+          });
+        } catch (error) {
+          return buildErrorResponse(error, {
+            operation: 'list filter types',
+            suggestion: 'This experimental endpoint may not be available. Common filter types include: LifecycleState, Effectivity, Custom.'
+          });
         }
-
-        // Note: This endpoint may not be available in standard Windchill 13.0.2
-        const response = await this.api.get(
-          `${apiEndpoints.navCriteria}/FilterTypes?${queryParams.toString()}`
-        );
-        return response.data;
       }
     },
 
-    // === PRIORITY 3: APPLICATION & USAGE ===
+    // =========================================================================
+    // PRIORITY 3: APPLICATION & USAGE
+    // =========================================================================
+
     {
       name: 'get_applied_criteria',
-      description: 'Get navigation criteria currently applied to a part structure view (EXPERIMENTAL)',
+      description: `Get navigation criteria currently applied to a part structure view (EXPERIMENTAL).
+
+This retrieves the criteria that are actively filtering the BOM view for a specific part.
+
+**Parameters:**
+- partId (required): Part OID to check applied criteria
+- viewName: View name (e.g., "Design", "Manufacturing")
+- response_format: 'markdown' (default) or 'json'
+- detail_level: 'concise' (default) or 'detailed'
+
+**Returns:** List of navigation criteria applied to the part's structure view.
+
+**Examples:**
+- Check part criteria: { "partId": "VR:wt.part.WTPart:12345" }
+- For specific view: { "partId": "VR:...:12345", "viewName": "Design" }
+
+**Note:** This endpoint may not be available in all Windchill configurations.
+
+**Error handling:**
+- Not found: Returns error if part ID is invalid
+- Not available: Returns error if AppliedNavigationCriteria endpoint is not supported`,
       inputSchema: {
         type: 'object',
         properties: {
@@ -231,26 +476,63 @@ export class NavCriteriaAgent extends BaseAgent {
           viewName: {
             type: 'string',
             description: 'View name (e.g., "Design", "Manufacturing")'
-          }
+          },
+          ...FORMAT_SCHEMA_PROPS
         },
         required: ['partId']
       },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const queryParams = new URLSearchParams();
+      annotations: {
+        title: 'Get Applied Criteria (Experimental)',
+        ...READ_ONLY_ANNOTATIONS
+      },
+      handler: async (params: any) => {
+        try {
+          const queryParams = new URLSearchParams();
 
-        if (params.viewName) {
-          queryParams.append('$filter', `ViewName eq '${params.viewName}'`);
+          if (params.viewName) {
+            queryParams.append('$filter', `ViewName eq '${params.viewName}'`);
+          }
+
+          const response = await this.api.get(
+            `${apiEndpoints.parts}('${params.partId}')/AppliedNavigationCriteria?${queryParams.toString()}`
+          );
+
+          const viewInfo = params.viewName ? ` (${params.viewName} view)` : '';
+
+          return buildListResponse(response.data, params, {
+            title: `Applied Criteria: ${params.partId}${viewInfo}`,
+            conciseFields: CRITERIA_CONCISE_FIELDS,
+            markdownColumns: CRITERIA_MARKDOWN_COLUMNS
+          });
+        } catch (error) {
+          return buildErrorResponse(error, {
+            operation: 'get applied criteria',
+            suggestion: 'Verify the part ID. This experimental endpoint may not be available in all configurations.'
+          });
         }
-
-        const response = await this.api.get(
-          `${apiEndpoints.parts}('${params.partId}')/AppliedNavigationCriteria?${queryParams.toString()}`
-        );
-        return response.data;
       }
     },
+
     {
       name: 'get_default_criteria',
-      description: 'Get default navigation criteria for a container/context',
+      description: `Get default navigation criteria for a container/context.
+
+Default criteria define the standard filters applied to BOM views within a product or library.
+
+**Parameters:**
+- containerId (required): Container OID (product/library) to get default criteria
+- viewName: View name to get specific default criteria (e.g., "Design", "Manufacturing")
+- response_format: 'markdown' (default) or 'json'
+- detail_level: 'concise' (default) or 'detailed'
+
+**Returns:** List of default navigation criteria for the container.
+
+**Examples:**
+- Get container defaults: { "containerId": "OR:wt.pdmlink.PDMLinkProduct:12345" }
+- For specific view: { "containerId": "OR:...:12345", "viewName": "Manufacturing" }
+
+**Error handling:**
+- Not found: Returns error if container ID is invalid`,
       inputSchema: {
         type: 'object',
         properties: {
@@ -261,26 +543,65 @@ export class NavCriteriaAgent extends BaseAgent {
           viewName: {
             type: 'string',
             description: 'View name to get specific default criteria'
-          }
+          },
+          ...FORMAT_SCHEMA_PROPS
         },
         required: ['containerId']
       },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const queryParams = new URLSearchParams();
+      annotations: {
+        title: 'Get Default Criteria',
+        ...READ_ONLY_ANNOTATIONS
+      },
+      handler: async (params: any) => {
+        try {
+          const queryParams = new URLSearchParams();
 
-        if (params.viewName) {
-          queryParams.append('$filter', `ViewName eq '${params.viewName}'`);
+          if (params.viewName) {
+            queryParams.append('$filter', `ViewName eq '${params.viewName}'`);
+          }
+
+          const response = await this.api.get(
+            `${apiEndpoints.containers}('${params.containerId}')/DefaultNavigationCriteria?${queryParams.toString()}`
+          );
+
+          const viewInfo = params.viewName ? ` (${params.viewName} view)` : '';
+
+          return buildListResponse(response.data, params, {
+            title: `Default Criteria: ${params.containerId}${viewInfo}`,
+            conciseFields: CRITERIA_CONCISE_FIELDS,
+            markdownColumns: CRITERIA_MARKDOWN_COLUMNS
+          });
+        } catch (error) {
+          return buildErrorResponse(error, {
+            operation: 'get default criteria',
+            suggestion: 'Verify the container ID. Use dataadmin_list_products or dataadmin_list_libraries to find valid container IDs.'
+          });
         }
-
-        const response = await this.api.get(
-          `${apiEndpoints.containers}('${params.containerId}')/DefaultNavigationCriteria?${queryParams.toString()}`
-        );
-        return response.data;
       }
     },
+
     {
       name: 'get_criteria_by_view',
-      description: 'Get navigation criteria filtered by view type',
+      description: `Get navigation criteria filtered by view type.
+
+Retrieves all navigation criteria applicable to a specific view (e.g., Design, Manufacturing).
+
+**Parameters:**
+- viewName (required): View name (e.g., "Design", "Manufacturing")
+- container: Filter by container/context OID
+- limit: Max results (1-${MAX_LIMIT}, default: ${DEFAULT_LIMIT})
+- offset: Skip N results for pagination
+- response_format: 'markdown' (default) or 'json'
+- detail_level: 'concise' (default) or 'detailed'
+
+**Returns (markdown):**
+| Name | Filter Type | Description | Container |
+Pagination info with has_more and next_offset
+
+**Examples:**
+- Design view criteria: { "viewName": "Design" }
+- Manufacturing with container: { "viewName": "Manufacturing", "container": "OR:...:12345" }
+- Paginate: { "viewName": "Design", "limit": 20, "offset": 0 }`,
       inputSchema: {
         type: 'object',
         properties: {
@@ -292,31 +613,40 @@ export class NavCriteriaAgent extends BaseAgent {
             type: 'string',
             description: 'Filter by container/context OID'
           },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of results to return'
-          }
+          ...STANDARD_LIST_SCHEMA_PROPS
         },
         required: ['viewName']
       },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const queryParams = new URLSearchParams();
-        const filters = [`ViewName eq '${params.viewName}'`];
+      annotations: {
+        title: 'Get Criteria by View',
+        ...READ_ONLY_ANNOTATIONS
+      },
+      handler: async (params: any) => {
+        try {
+          const filters: string[] = [`ViewName eq '${params.viewName}'`];
 
-        if (params.container) {
-          filters.push(`Container eq '${params.container}'`);
+          if (params.container) {
+            filters.push(`Container eq '${params.container}'`);
+          }
+
+          const queryParams = buildODataPagination(params);
+          queryParams.append('$filter', combineFilters(filters));
+
+          const response = await this.api.get(
+            `${apiEndpoints.navCriteria}?${queryParams.toString()}`
+          );
+
+          return buildListResponse(response.data, params, {
+            title: `Navigation Criteria: ${params.viewName} View`,
+            conciseFields: CRITERIA_CONCISE_FIELDS,
+            markdownColumns: CRITERIA_MARKDOWN_COLUMNS
+          });
+        } catch (error) {
+          return buildErrorResponse(error, {
+            operation: 'get criteria by view',
+            suggestion: 'Verify the view name. Common views include: "Design", "Manufacturing", "Planning".'
+          });
         }
-
-        queryParams.append('$filter', filters.join(' and '));
-
-        if (params.limit) {
-          queryParams.append('$top', String(params.limit));
-        }
-
-        const response = await this.api.get(
-          `${apiEndpoints.navCriteria}?${queryParams.toString()}`
-        );
-        return response.data;
       }
     }
   ];

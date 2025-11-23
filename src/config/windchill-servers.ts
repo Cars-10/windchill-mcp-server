@@ -14,14 +14,21 @@ const envPath = path.join(projectRoot, '.env');
 
 dotenv.config({ path: envPath });
 
+export type AuthMethod = 'basic' | 'oauth' | 'session';
+
 export interface WindchillServerConfig {
   id: number;
   name: string;
   baseURL: string;
-  username: string;
-  password: string;
+  username?: string;
+  password?: string;
+  authMethod: AuthMethod;
   timeout: number;
   apiPath: string;
+  // OAuth 2.0 specific fields
+  oauthClientId?: string;
+  oauthClientSecret?: string;
+  oauthTokenUrl?: string;
 }
 
 class WindchillServerManager {
@@ -42,22 +49,53 @@ class WindchillServerManager {
     let serverCount = 0;
     for (let i = 1; i <= 10; i++) {
       const url = process.env[`WINDCHILL_URL_${i}`];
-      const user = process.env[`WINDCHILL_USER_${i}`];
-      const password = process.env[`WINDCHILL_PASSWORD_${i}`];
       const name = process.env[`WINDCHILL_NAME_${i}`];
+      const authMethod = (process.env[`WINDCHILL_AUTH_METHOD_${i}`] || 'session') as AuthMethod;
 
-      if (url && user && password) {
-        this.servers.set(i, {
-          id: i,
-          name: name || `Windchill Server ${i}`,
-          baseURL: url,
-          username: user,
-          password: password,
-          timeout: 30000,
-          apiPath: '/servlet/odata'
-        });
-        serverCount++;
-        logger.info(`Loaded server ${i}: ${name || `Server ${i}`}`, { url });
+      if (!url) continue;
+
+      // Common configuration
+      const config: WindchillServerConfig = {
+        id: i,
+        name: name || `Windchill Server ${i}`,
+        baseURL: url,
+        authMethod,
+        timeout: 30000,
+        apiPath: '/servlet/odata'
+      };
+
+      // Load credentials based on auth method
+      if (authMethod === 'oauth') {
+        const clientId = process.env[`WINDCHILL_OAUTH_CLIENT_ID_${i}`];
+        const clientSecret = process.env[`WINDCHILL_OAUTH_CLIENT_SECRET_${i}`];
+        const tokenUrl = process.env[`WINDCHILL_OAUTH_TOKEN_URL_${i}`];
+
+        if (clientId && clientSecret) {
+          config.oauthClientId = clientId;
+          config.oauthClientSecret = clientSecret;
+          config.oauthTokenUrl = tokenUrl || `${url}/oauth2/token`;
+
+          this.servers.set(i, config);
+          serverCount++;
+          logger.info(`Loaded server ${i}: ${name || `Server ${i}`} (OAuth 2.0)`, { url });
+        } else {
+          logger.warn(`Server ${i} configured for OAuth but missing client credentials`);
+        }
+      } else {
+        // Basic or session auth - requires username/password
+        const user = process.env[`WINDCHILL_USER_${i}`];
+        const password = process.env[`WINDCHILL_PASSWORD_${i}`];
+
+        if (user && password) {
+          config.username = user;
+          config.password = password;
+
+          this.servers.set(i, config);
+          serverCount++;
+          logger.info(`Loaded server ${i}: ${name || `Server ${i}`} (${authMethod})`, { url });
+        } else {
+          logger.warn(`Server ${i} requires username/password for ${authMethod} auth`);
+        }
       }
     }
 
@@ -66,6 +104,7 @@ class WindchillServerManager {
       const legacyUrl = process.env.WINDCHILL_URL;
       const legacyUser = process.env.WINDCHILL_USER;
       const legacyPassword = process.env.WINDCHILL_PASSWORD;
+      const legacyAuthMethod = (process.env.WINDCHILL_AUTH_METHOD || 'session') as AuthMethod;
 
       if (legacyUrl && legacyUser && legacyPassword) {
         this.servers.set(1, {
@@ -74,11 +113,12 @@ class WindchillServerManager {
           baseURL: legacyUrl,
           username: legacyUser,
           password: legacyPassword,
+          authMethod: legacyAuthMethod,
           timeout: 30000,
           apiPath: '/servlet/odata'
         });
         serverCount = 1;
-        logger.info('Loaded legacy single-server configuration', { url: legacyUrl });
+        logger.info(`Loaded legacy single-server configuration (${legacyAuthMethod})`, { url: legacyUrl });
       }
     }
 

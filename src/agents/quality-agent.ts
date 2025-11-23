@@ -1,337 +1,200 @@
+/**
+ * @fileoverview Quality Agent - Token-Efficient MCP Tools for Windchill QMS
+ *
+ * **Module Requirement:** Requires Windchill Quality Management Solutions (QMS)
+ */
+
 import { BaseAgent } from './base-agent.js';
 import { apiEndpoints } from '../config/windchill.js';
-import { ToolParams, ToolResult } from '../types/common.js';
+import { ToolDefinition, ToolAnnotations } from '../types/common.js';
+import {
+  ResponseFormat,
+  STANDARD_LIST_SCHEMA_PROPS,
+  FORMAT_SCHEMA_PROPS,
+  buildListResponse,
+  buildSingleItemResponse,
+  buildErrorResponse,
+  buildODataPagination,
+  combineFilters,
+  DEFAULT_LIMIT,
+  MAX_LIMIT
+} from '../utils/response-formatter.js';
 
-/**
- * QualityAgent provides tools for managing Windchill quality management data.
- *
- * This agent exposes Quality Management Domain capabilities for inspections,
- * nonconformance reports, and corrective actions.
- *
- * **Module Requirement:** Requires Windchill Quality Management Solutions (QMS) module
- *
- * **Priority 1 - Quality Inspections:**
- * - list_inspections: List quality inspections
- * - get_inspection: Get detailed inspection information
- * - search_inspections: Search inspections by criteria
- *
- * **Priority 2 - Nonconformance Reports:**
- * - list_nonconformances: List nonconformance reports
- * - get_nonconformance: Get detailed NCR information
- * - search_nonconformances: Search NCRs
- *
- * **Priority 3 - Corrective Actions:**
- * - list_corrective_actions: List corrective actions
- * - get_corrective_action: Get detailed corrective action
- *
- * **Note:** This domain requires Windchill QMS module. May not be available in all installations.
- */
+const INSPECTION_FIELDS = ['Number', 'Status', 'InspectionType', 'InspectionDate'] as const;
+const INSPECTION_COLUMNS = { Number: 'Number', Status: 'Status', InspectionType: 'Type', InspectionDate: 'Date' };
+const NCR_FIELDS = ['Number', 'Status', 'Severity', 'CreatedOn'] as const;
+const NCR_COLUMNS = { Number: 'Number', Status: 'Status', Severity: 'Severity', CreatedOn: 'Created' };
+
+const READ_ONLY: ToolAnnotations = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true };
+
 export class QualityAgent extends BaseAgent {
   protected agentName = 'quality';
 
-  protected tools = [
-    // === PRIORITY 1: QUALITY INSPECTIONS ===
+  protected tools: ToolDefinition[] = [
     {
       name: 'list_inspections',
-      description: 'List all quality inspections (requires QMS module)',
+      description: `List quality inspections (requires QMS).
+
+**Parameters:** status, inspectionType, dateAfter, limit/offset, response_format
+**Example:** { "status": "Open", "limit": 20 }`,
       inputSchema: {
         type: 'object',
         properties: {
-          status: {
-            type: 'string',
-            description: 'Filter by inspection status (e.g., "Open", "Closed")'
-          },
-          inspectionType: {
-            type: 'string',
-            description: 'Filter by inspection type'
-          },
-          dateAfter: {
-            type: 'string',
-            description: 'Filter by inspection date (ISO 8601 format)'
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of results to return'
-          }
+          status: { type: 'string', description: 'Inspection status (Open, Closed)' },
+          inspectionType: { type: 'string', description: 'Inspection type' },
+          dateAfter: { type: 'string', description: 'Date filter (ISO 8601)' },
+          ...STANDARD_LIST_SCHEMA_PROPS
         },
         required: []
       },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const queryParams = new URLSearchParams();
-        const filters = [];
-
-        if (params.status) {
-          filters.push(`Status eq '${params.status}'`);
-        }
-
-        if (params.inspectionType) {
-          filters.push(`InspectionType eq '${params.inspectionType}'`);
-        }
-
-        if (params.dateAfter) {
-          filters.push(`InspectionDate ge ${params.dateAfter}`);
-        }
-
-        if (filters.length > 0) {
-          queryParams.append('$filter', filters.join(' and '));
-        }
-
-        if (params.limit) {
-          queryParams.append('$top', String(params.limit));
-        }
-
-        const response = await this.api.get(
-          `${apiEndpoints.quality}/Inspections?${queryParams.toString()}`
-        );
-        return response.data;
+      annotations: { title: 'List Inspections', ...READ_ONLY },
+      handler: async (params: any) => {
+        try {
+          const filters: string[] = [];
+          if (params.status) filters.push(`Status eq '${params.status}'`);
+          if (params.inspectionType) filters.push(`InspectionType eq '${params.inspectionType}'`);
+          if (params.dateAfter) filters.push(`InspectionDate ge ${params.dateAfter}`);
+          const queryParams = buildODataPagination(params);
+          if (filters.length > 0) queryParams.append('$filter', combineFilters(filters));
+          const response = await this.api.get(`${apiEndpoints.quality}/Inspections?${queryParams.toString()}`);
+          return buildListResponse(response.data, params, { title: 'Inspections', conciseFields: INSPECTION_FIELDS, markdownColumns: INSPECTION_COLUMNS });
+        } catch (error) { return buildErrorResponse(error, { operation: 'list inspections', suggestion: 'Ensure QMS module is licensed.' }); }
       }
     },
     {
       name: 'get_inspection',
-      description: 'Get detailed information for a quality inspection',
+      description: `Get inspection details.
+
+**Parameters:** inspectionId (required), expand, response_format
+**Example:** { "inspectionId": "12345" }`,
       inputSchema: {
         type: 'object',
         properties: {
-          inspectionId: {
-            type: 'string',
-            description: 'Inspection OID'
-          },
-          expand: {
-            type: 'string',
-            description: 'Navigation properties to expand'
-          }
+          inspectionId: { type: 'string', description: 'Inspection OID' },
+          expand: { type: 'string', description: 'Navigation properties' },
+          ...FORMAT_SCHEMA_PROPS
         },
         required: ['inspectionId']
       },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const queryParams = new URLSearchParams();
-
-        if (params.expand) {
-          queryParams.append('$expand', String(params.expand));
-        }
-
-        const queryString = queryParams.toString();
-        const url = queryString
-          ? `${apiEndpoints.quality}/Inspections('${params.inspectionId}')?${queryString}`
-          : `${apiEndpoints.quality}/Inspections('${params.inspectionId}')`;
-
-        const response = await this.api.get(url);
-        return response.data;
+      annotations: { title: 'Get Inspection', ...READ_ONLY },
+      handler: async (params: any) => {
+        try {
+          const queryParams = new URLSearchParams();
+          if (params.expand) queryParams.append('$expand', params.expand);
+          const url = queryParams.toString() ? `${apiEndpoints.quality}/Inspections('${params.inspectionId}')?${queryParams}` : `${apiEndpoints.quality}/Inspections('${params.inspectionId}')`;
+          const response = await this.api.get(url);
+          return buildSingleItemResponse(response.data, params, { title: `Inspection: ${params.inspectionId}`, conciseFields: INSPECTION_FIELDS });
+        } catch (error) { return buildErrorResponse(error, { operation: 'get inspection' }); }
       }
     },
-    {
-      name: 'search_inspections',
-      description: 'Search quality inspections by criteria',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          query: {
-            type: 'string',
-            description: 'Search query'
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of results'
-          }
-        },
-        required: ['query']
-      },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const queryParams = new URLSearchParams();
-
-        queryParams.append('$filter', `contains(Name,'${params.query}')`);
-
-        if (params.limit) {
-          queryParams.append('$top', String(params.limit));
-        }
-
-        const response = await this.api.get(
-          `${apiEndpoints.quality}/Inspections?${queryParams.toString()}`
-        );
-        return response.data;
-      }
-    },
-
-    // === PRIORITY 2: NONCONFORMANCE REPORTS ===
     {
       name: 'list_nonconformances',
-      description: 'List nonconformance reports (NCRs)',
+      description: `List nonconformance reports (NCRs).
+
+**Parameters:** status, severity, dateAfter, limit/offset, response_format
+**Example:** { "severity": "Critical" }`,
       inputSchema: {
         type: 'object',
         properties: {
-          severity: {
-            type: 'string',
-            description: 'Filter by severity level'
-          },
-          status: {
-            type: 'string',
-            description: 'Filter by NCR status'
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of results'
-          }
+          status: { type: 'string', description: 'NCR status' },
+          severity: { type: 'string', description: 'Severity level' },
+          dateAfter: { type: 'string', description: 'Created after (ISO 8601)' },
+          ...STANDARD_LIST_SCHEMA_PROPS
         },
         required: []
       },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const queryParams = new URLSearchParams();
-        const filters = [];
-
-        if (params.severity) {
-          filters.push(`Severity eq '${params.severity}'`);
-        }
-
-        if (params.status) {
-          filters.push(`Status eq '${params.status}'`);
-        }
-
-        if (filters.length > 0) {
-          queryParams.append('$filter', filters.join(' and '));
-        }
-
-        if (params.limit) {
-          queryParams.append('$top', String(params.limit));
-        }
-
-        const response = await this.api.get(
-          `${apiEndpoints.quality}/Nonconformances?${queryParams.toString()}`
-        );
-        return response.data;
+      annotations: { title: 'List NCRs', ...READ_ONLY },
+      handler: async (params: any) => {
+        try {
+          const filters: string[] = [];
+          if (params.status) filters.push(`Status eq '${params.status}'`);
+          if (params.severity) filters.push(`Severity eq '${params.severity}'`);
+          if (params.dateAfter) filters.push(`CreatedOn ge ${params.dateAfter}`);
+          const queryParams = buildODataPagination(params);
+          if (filters.length > 0) queryParams.append('$filter', combineFilters(filters));
+          const response = await this.api.get(`${apiEndpoints.quality}/NonconformanceReports?${queryParams.toString()}`);
+          return buildListResponse(response.data, params, { title: 'Nonconformance Reports', conciseFields: NCR_FIELDS, markdownColumns: NCR_COLUMNS });
+        } catch (error) { return buildErrorResponse(error, { operation: 'list NCRs' }); }
       }
     },
     {
       name: 'get_nonconformance',
-      description: 'Get detailed nonconformance report information',
+      description: `Get NCR details.
+
+**Parameters:** ncrId (required), expand, response_format
+**Example:** { "ncrId": "12345" }`,
       inputSchema: {
         type: 'object',
         properties: {
-          ncrId: {
-            type: 'string',
-            description: 'NCR OID'
-          },
-          expand: {
-            type: 'string',
-            description: 'Navigation properties to expand'
-          }
+          ncrId: { type: 'string', description: 'NCR OID' },
+          expand: { type: 'string', description: 'Navigation properties' },
+          ...FORMAT_SCHEMA_PROPS
         },
         required: ['ncrId']
       },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const queryParams = new URLSearchParams();
-
-        if (params.expand) {
-          queryParams.append('$expand', String(params.expand));
-        }
-
-        const queryString = queryParams.toString();
-        const url = queryString
-          ? `${apiEndpoints.quality}/Nonconformances('${params.ncrId}')?${queryString}`
-          : `${apiEndpoints.quality}/Nonconformances('${params.ncrId}')`;
-
-        const response = await this.api.get(url);
-        return response.data;
+      annotations: { title: 'Get NCR', ...READ_ONLY },
+      handler: async (params: any) => {
+        try {
+          const queryParams = new URLSearchParams();
+          if (params.expand) queryParams.append('$expand', params.expand);
+          const url = queryParams.toString() ? `${apiEndpoints.quality}/NonconformanceReports('${params.ncrId}')?${queryParams}` : `${apiEndpoints.quality}/NonconformanceReports('${params.ncrId}')`;
+          const response = await this.api.get(url);
+          return buildSingleItemResponse(response.data, params, { title: `NCR: ${params.ncrId}`, conciseFields: NCR_FIELDS });
+        } catch (error) { return buildErrorResponse(error, { operation: 'get NCR' }); }
       }
     },
-    {
-      name: 'search_nonconformances',
-      description: 'Search nonconformance reports',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          query: {
-            type: 'string',
-            description: 'Search query'
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of results'
-          }
-        },
-        required: ['query']
-      },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const queryParams = new URLSearchParams();
-
-        queryParams.append('$filter', `(contains(Number,'${params.query}') or contains(Description,'${params.query}'))`);
-
-        if (params.limit) {
-          queryParams.append('$top', String(params.limit));
-        }
-
-        const response = await this.api.get(
-          `${apiEndpoints.quality}/Nonconformances?${queryParams.toString()}`
-        );
-        return response.data;
-      }
-    },
-
-    // === PRIORITY 3: CORRECTIVE ACTIONS ===
     {
       name: 'list_corrective_actions',
-      description: 'List corrective actions',
+      description: `List corrective actions.
+
+**Parameters:** status, priority, limit/offset, response_format
+**Example:** { "status": "Open" }`,
       inputSchema: {
         type: 'object',
         properties: {
-          status: {
-            type: 'string',
-            description: 'Filter by status'
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of results'
-          }
+          status: { type: 'string', description: 'Action status' },
+          priority: { type: 'string', description: 'Priority level' },
+          ...STANDARD_LIST_SCHEMA_PROPS
         },
         required: []
       },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const queryParams = new URLSearchParams();
-
-        if (params.status) {
-          queryParams.append('$filter', `Status eq '${params.status}'`);
-        }
-
-        if (params.limit) {
-          queryParams.append('$top', String(params.limit));
-        }
-
-        const response = await this.api.get(
-          `${apiEndpoints.quality}/CorrectiveActions?${queryParams.toString()}`
-        );
-        return response.data;
+      annotations: { title: 'List Corrective Actions', ...READ_ONLY },
+      handler: async (params: any) => {
+        try {
+          const filters: string[] = [];
+          if (params.status) filters.push(`Status eq '${params.status}'`);
+          if (params.priority) filters.push(`Priority eq '${params.priority}'`);
+          const queryParams = buildODataPagination(params);
+          if (filters.length > 0) queryParams.append('$filter', combineFilters(filters));
+          const response = await this.api.get(`${apiEndpoints.quality}/CorrectiveActions?${queryParams.toString()}`);
+          return buildListResponse(response.data, params, { title: 'Corrective Actions', conciseFields: ['Number', 'Status', 'Priority', 'DueDate'], markdownColumns: { Number: 'Number', Status: 'Status', Priority: 'Priority', DueDate: 'Due' } });
+        } catch (error) { return buildErrorResponse(error, { operation: 'list corrective actions' }); }
       }
     },
     {
       name: 'get_corrective_action',
-      description: 'Get detailed corrective action information',
+      description: `Get corrective action details.
+
+**Parameters:** actionId (required), expand, response_format
+**Example:** { "actionId": "12345" }`,
       inputSchema: {
         type: 'object',
         properties: {
-          actionId: {
-            type: 'string',
-            description: 'Corrective action OID'
-          },
-          expand: {
-            type: 'string',
-            description: 'Navigation properties to expand'
-          }
+          actionId: { type: 'string', description: 'Corrective action OID' },
+          expand: { type: 'string', description: 'Navigation properties' },
+          ...FORMAT_SCHEMA_PROPS
         },
         required: ['actionId']
       },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const queryParams = new URLSearchParams();
-
-        if (params.expand) {
-          queryParams.append('$expand', String(params.expand));
-        }
-
-        const queryString = queryParams.toString();
-        const url = queryString
-          ? `${apiEndpoints.quality}/CorrectiveActions('${params.actionId}')?${queryString}`
-          : `${apiEndpoints.quality}/CorrectiveActions('${params.actionId}')`;
-
-        const response = await this.api.get(url);
-        return response.data;
+      annotations: { title: 'Get Corrective Action', ...READ_ONLY },
+      handler: async (params: any) => {
+        try {
+          const queryParams = new URLSearchParams();
+          if (params.expand) queryParams.append('$expand', params.expand);
+          const url = queryParams.toString() ? `${apiEndpoints.quality}/CorrectiveActions('${params.actionId}')?${queryParams}` : `${apiEndpoints.quality}/CorrectiveActions('${params.actionId}')`;
+          const response = await this.api.get(url);
+          return buildSingleItemResponse(response.data, params, { title: `Corrective Action: ${params.actionId}`, conciseFields: ['Number', 'Status', 'Priority', 'Description'] });
+        } catch (error) { return buildErrorResponse(error, { operation: 'get corrective action' }); }
       }
     }
   ];

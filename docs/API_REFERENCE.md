@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document provides comprehensive API reference for all tools available in the Windchill MCP Server. The server provides 42+ tools across 5 specialized agents, each designed to handle specific Windchill PLM operations.
+This document provides comprehensive API reference for all tools available in the Windchill MCP Server. The server provides **180+ tools across 20 specialized agents**, each designed to handle specific Windchill PLM operations with **token-efficient response formatting**.
 
 ## API Conventions
 
@@ -24,13 +24,39 @@ Examples:
     "name": "tool_name",
     "arguments": {
       "param1": "value1",
-      "param2": "value2"
+      "param2": "value2",
+      "response_format": "markdown",
+      "detail_level": "concise",
+      "limit": 20,
+      "offset": 0
     }
   }
 }
 ```
 
-### Response Format
+### Response Format Options
+
+All tools support token-efficient response formatting via these parameters:
+
+| Parameter | Values | Default | Description |
+|-----------|--------|---------|-------------|
+| `response_format` | `markdown`, `json` | `markdown` | Output format. Markdown is token-efficient for LLMs |
+| `detail_level` | `concise`, `detailed` | `concise` | Field inclusion. Concise shows essential fields only |
+| `limit` | 1-100 | 20 | Maximum results per request |
+| `offset` | 0+ | 0 | Skip N results for pagination |
+
+### Markdown Response Format (Default)
+```markdown
+## Parts (20 of 150)
+| Number | Name | State |
+|--------|------|-------|
+| P-001 | Widget | Released |
+| P-002 | Gadget | In Work |
+
+**Pagination:** has_more: true | next_offset: 20 | total: 150
+```
+
+### JSON Response Format
 ```json
 {
   "jsonrpc": "2.0",
@@ -39,14 +65,24 @@ Examples:
     "content": [
       {
         "type": "text",
-        "text": "JSON formatted result"
+        "text": "{\"data\":[...],\"pagination\":{\"has_more\":true,\"next_offset\":20,\"total\":150}}"
       }
     ]
   }
 }
 ```
 
-## Part Agent Tools (4 tools)
+### Tool Annotations
+
+All tools include MCP-compliant annotations:
+- `readOnlyHint`: True if tool doesn't modify data
+- `destructiveHint`: True if tool deletes or irreversibly modifies data
+- `idempotentHint`: True if repeated calls produce same result
+- `openWorldHint`: True if tool accesses external systems
+
+## Part Agent Tools (16 tools)
+
+The Part Agent provides comprehensive part management with token-efficient responses.
 
 ### `part_search`
 Search for parts in Windchill by various criteria.
@@ -56,18 +92,12 @@ Search for parts in Windchill by various criteria.
 {
   "type": "object",
   "properties": {
-    "number": {
-      "type": "string",
-      "description": "Part number to search for"
-    },
-    "name": {
-      "type": "string",
-      "description": "Part name to search for"
-    },
-    "state": {
-      "type": "string",
-      "description": "Part lifecycle state"
-    }
+    "number": { "type": "string", "description": "Part number (wildcards supported)" },
+    "name": { "type": "string", "description": "Part name (wildcards supported)" },
+    "limit": { "type": "number", "description": "Max results (1-100, default: 20)" },
+    "offset": { "type": "number", "description": "Skip N results for pagination" },
+    "response_format": { "type": "string", "enum": ["markdown", "json"], "default": "markdown" },
+    "detail_level": { "type": "string", "enum": ["concise", "detailed"], "default": "concise" }
   },
   "required": []
 }
@@ -78,14 +108,23 @@ Search for parts in Windchill by various criteria.
 {
   "name": "part_search",
   "arguments": {
-    "number": "P12345",
-    "state": "RELEASED"
+    "number": "P-*",
+    "limit": 20,
+    "response_format": "markdown"
   }
 }
 ```
 
-**Response:**
-Returns OData collection of matching parts with metadata.
+**Markdown Response (default):**
+```markdown
+## Parts (20 of 150)
+| Number | Name | State |
+|--------|------|-------|
+| P-001 | Widget Assembly | Released |
+| P-002 | Gadget Component | In Work |
+
+**Pagination:** has_more: true | next_offset: 20 | total: 150
+```
 
 ### `part_get`
 Retrieve detailed information for a specific part by ID.

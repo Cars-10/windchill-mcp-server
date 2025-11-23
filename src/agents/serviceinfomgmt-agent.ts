@@ -1,86 +1,79 @@
-import { BaseAgent } from './base-agent.js';
-import { apiEndpoints } from '../config/windchill.js';
-import { ToolParams, ToolResult } from '../types/common.js';
-
 /**
- * ServiceInfoMgmtAgent provides tools for service information/technical publications.
+ * @fileoverview Service Info Management Agent - Token-Efficient MCP Tools
  *
  * **Module Requirement:** May require Windchill Service Information Manager
- *
- * **Features:**
- * - list_service_documents: List service information documents
- * - get_service_document: Get service document details
- * - search_service_info: Search service information
  */
+
+import { BaseAgent } from './base-agent.js';
+import { apiEndpoints } from '../config/windchill.js';
+import { ToolDefinition, ToolAnnotations } from '../types/common.js';
+import {
+  STANDARD_LIST_SCHEMA_PROPS,
+  FORMAT_SCHEMA_PROPS,
+  buildListResponse,
+  buildSingleItemResponse,
+  buildErrorResponse,
+  buildODataPagination,
+  buildTextFilter,
+  combineFilters
+} from '../utils/response-formatter.js';
+
+const SVC_FIELDS = ['ID', 'Name', 'Category', 'State'] as const;
+const SVC_COLUMNS = { Name: 'Name', Category: 'Category', State: 'State' };
+const READ_ONLY: ToolAnnotations = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true };
+
 export class ServiceInfoMgmtAgent extends BaseAgent {
   protected agentName = 'serviceinfomgmt';
 
-  protected tools = [
+  protected tools: ToolDefinition[] = [
     {
       name: 'list_service_documents',
-      description: 'List service information documents',
+      description: `List service information documents (may require Service Info Manager).
+
+**Parameters:** name (wildcards), category, limit/offset, response_format
+**Example:** { "category": "Maintenance" }`,
       inputSchema: {
         type: 'object',
         properties: {
-          name: {
-            type: 'string',
-            description: 'Filter by document name'
-          },
-          category: {
-            type: 'string',
-            description: 'Filter by category'
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of results'
-          }
+          name: { type: 'string', description: 'Document name filter' },
+          category: { type: 'string', description: 'Filter by category' },
+          ...STANDARD_LIST_SCHEMA_PROPS
         },
         required: []
       },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const queryParams = new URLSearchParams();
-        const filters = [];
-
-        if (params.name) {
-          filters.push(`contains(Name,'${params.name}')`);
-        }
-
-        if (params.category) {
-          filters.push(`Category eq '${params.category}'`);
-        }
-
-        if (filters.length > 0) {
-          queryParams.append('$filter', filters.join(' and '));
-        }
-
-        if (params.limit) {
-          queryParams.append('$top', String(params.limit));
-        }
-
-        const response = await this.api.get(
-          `${apiEndpoints.serviceInfo}/ServiceDocuments?${queryParams.toString()}`
-        );
-        return response.data;
+      annotations: { title: 'List Service Documents', ...READ_ONLY },
+      handler: async (params: any) => {
+        try {
+          const filters: string[] = [];
+          if (params.name) filters.push(buildTextFilter('Name', params.name));
+          if (params.category) filters.push(`Category eq '${params.category}'`);
+          const queryParams = buildODataPagination(params);
+          if (filters.length > 0) queryParams.append('$filter', combineFilters(filters));
+          const response = await this.api.get(`${apiEndpoints.serviceInfo}/ServiceDocuments?${queryParams.toString()}`);
+          return buildListResponse(response.data, params, { title: 'Service Documents', conciseFields: SVC_FIELDS, markdownColumns: SVC_COLUMNS });
+        } catch (error) { return buildErrorResponse(error, { operation: 'list service documents', suggestion: 'Ensure Service Info Manager module is licensed.' }); }
       }
     },
     {
       name: 'get_service_document',
-      description: 'Get detailed service document information',
+      description: `Get service document details.
+
+**Parameters:** documentId (required), response_format
+**Example:** { "documentId": "12345" }`,
       inputSchema: {
         type: 'object',
         properties: {
-          documentId: {
-            type: 'string',
-            description: 'Service document OID'
-          }
+          documentId: { type: 'string', description: 'Service document OID' },
+          ...FORMAT_SCHEMA_PROPS
         },
         required: ['documentId']
       },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const response = await this.api.get(
-          `${apiEndpoints.serviceInfo}/ServiceDocuments('${params.documentId}')`
-        );
-        return response.data;
+      annotations: { title: 'Get Service Document', ...READ_ONLY },
+      handler: async (params: any) => {
+        try {
+          const response = await this.api.get(`${apiEndpoints.serviceInfo}/ServiceDocuments('${params.documentId}')`);
+          return buildSingleItemResponse(response.data, params, { title: `Service Document: ${params.documentId}`, conciseFields: SVC_FIELDS });
+        } catch (error) { return buildErrorResponse(error, { operation: 'get service document' }); }
       }
     }
   ];

@@ -95,6 +95,16 @@ const agents = {
 const allTools: any[] = [];
 const toolHandlers = new Map<string, (params: any) => Promise<any>>();
 
+const ALLOWED_ORIGINS = (process.env.MCP_ALLOWED_ORIGINS || 'http://localhost:4200').split(',').map(s => s.trim()).filter(Boolean);
+function originAllowed(origin: any) { return typeof origin === 'string' && ALLOWED_ORIGINS.includes(origin); }
+function getAccessOrigin(origin: any) { return originAllowed(origin) ? origin : (ALLOWED_ORIGINS[0] || ''); }
+function isAuthorized(req: any) {
+  const key = process.env.MCP_API_KEY;
+  if (!key) return true;
+  const auth = req.headers['authorization'];
+  return typeof auth === 'string' && auth === `Bearer ${key}`;
+}
+
 Object.values(agents).forEach(agent => {
   const agentTools = (agent as any).tools || [];
   const agentName = (agent as any).agentName || 'unknown';
@@ -107,11 +117,18 @@ Object.values(agents).forEach(agent => {
 
   agentTools.forEach((tool: any) => {
     const toolName = `${agentName}_${tool.name}`;
-    allTools.push({
+    const toolDef: any = {
       name: toolName,
       description: tool.description,
       inputSchema: tool.inputSchema,
-    });
+    };
+
+    // Include annotations if present (MCP best practice for tool hints)
+    if (tool.annotations) {
+      toolDef.annotations = tool.annotations;
+    }
+
+    allTools.push(toolDef);
     toolHandlers.set(toolName, tool.handler.bind(agent));
   });
 });
@@ -195,10 +212,11 @@ const healthCheckPort = parseInt(process.env.MCP_SERVER_PORT || '3000', 10);
 const healthServer = http.createServer((req, res) => {
   const requestId = `http_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-  // Add CORS headers for Angular app
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin as string || '';
+  const accessOrigin = getAccessOrigin(origin);
+  if (accessOrigin) res.setHeader('Access-Control-Allow-Origin', accessOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
@@ -225,9 +243,9 @@ const healthServer = http.createServer((req, res) => {
     const currentServer = serverManager.getActiveServer();
     res.writeHead(200, {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': accessOrigin,
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type'
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
     });
     res.end(JSON.stringify({
       name: 'Windchill MCP Server',
@@ -250,9 +268,9 @@ const healthServer = http.createServer((req, res) => {
     if (req.method === 'GET') {
       res.writeHead(200, {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': accessOrigin,
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
       });
       res.end(JSON.stringify({ tools: allTools }));
       return;
@@ -266,6 +284,18 @@ const healthServer = http.createServer((req, res) => {
 
     req.on('end', async () => {
       try {
+        if (req.method === 'POST') {
+          if (!originAllowed(origin)) {
+            res.writeHead(403, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': accessOrigin });
+            res.end(JSON.stringify({ error: 'Forbidden', message: 'Origin not allowed' }));
+            return;
+          }
+          if (!isAuthorized(req)) {
+            res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': accessOrigin });
+            res.end(JSON.stringify({ error: 'Unauthorized', message: 'Missing or invalid Authorization' }));
+            return;
+          }
+        }
         let response: any;
 
         // Try to parse as JSON-RPC if body is present
@@ -337,9 +367,9 @@ const healthServer = http.createServer((req, res) => {
 
               res.writeHead(200, {
                 'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Origin': accessOrigin,
                 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type'
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization'
               });
               res.end(JSON.stringify(response));
               return;
@@ -357,9 +387,9 @@ const healthServer = http.createServer((req, res) => {
 
         res.writeHead(200, {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': accessOrigin,
           'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type'
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization'
         });
         res.end(JSON.stringify(response));
 
@@ -390,6 +420,18 @@ const healthServer = http.createServer((req, res) => {
 
     req.on('end', async () => {
       try {
+        if (req.method === 'POST') {
+          if (!originAllowed(origin)) {
+            res.writeHead(403, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': accessOrigin });
+            res.end(JSON.stringify({ error: 'Forbidden', message: 'Origin not allowed' }));
+            return;
+          }
+          if (!isAuthorized(req)) {
+            res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': accessOrigin });
+            res.end(JSON.stringify({ error: 'Unauthorized', message: 'Missing or invalid Authorization' }));
+            return;
+          }
+        }
         let parameters: any = {};
 
         // Parse request body if present
@@ -462,7 +504,7 @@ const healthServer = http.createServer((req, res) => {
 
           res.writeHead(404, {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
+            'Access-Control-Allow-Origin': accessOrigin
           });
           res.end(JSON.stringify({
             error: 'Tool not found',
@@ -490,9 +532,9 @@ const healthServer = http.createServer((req, res) => {
 
           res.writeHead(200, {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Origin': accessOrigin,
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type'
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
           });
           res.end(JSON.stringify(result));
 
@@ -507,7 +549,7 @@ const healthServer = http.createServer((req, res) => {
 
           res.writeHead(500, {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
+            'Access-Control-Allow-Origin': accessOrigin
           });
           res.end(JSON.stringify({
             error: 'Tool execution failed',
@@ -538,9 +580,9 @@ const healthServer = http.createServer((req, res) => {
 
     res.writeHead(200, {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': accessOrigin,
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type'
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
     });
     res.end(JSON.stringify({ servers }));
   } else if (req.url === '/api/servers/current') {
@@ -551,9 +593,9 @@ const healthServer = http.createServer((req, res) => {
 
     res.writeHead(200, {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': accessOrigin,
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type'
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
     });
     res.end(JSON.stringify({
       id: currentServer.id,
@@ -572,12 +614,22 @@ const healthServer = http.createServer((req, res) => {
 
     req.on('end', async () => {
       try {
+        if (!originAllowed(origin)) {
+          res.writeHead(403, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': accessOrigin });
+          res.end(JSON.stringify({ error: 'Forbidden', message: 'Origin not allowed' }));
+          return;
+        }
+        if (!isAuthorized(req)) {
+          res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': accessOrigin });
+          res.end(JSON.stringify({ error: 'Unauthorized', message: 'Missing or invalid Authorization' }));
+          return;
+        }
         const { serverId } = JSON.parse(body);
 
         if (!serverId || typeof serverId !== 'number') {
           res.writeHead(400, {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
+            'Access-Control-Allow-Origin': accessOrigin
           });
           res.end(JSON.stringify({
             error: 'Invalid request',
@@ -589,7 +641,7 @@ const healthServer = http.createServer((req, res) => {
         if (!serverManager.hasServer(serverId)) {
           res.writeHead(404, {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
+            'Access-Control-Allow-Origin': accessOrigin
           });
           res.end(JSON.stringify({
             error: 'Server not found',
@@ -610,7 +662,7 @@ const healthServer = http.createServer((req, res) => {
         if (!targetServer) {
           res.writeHead(404, {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
+            'Access-Control-Allow-Origin': accessOrigin
           });
           res.end(JSON.stringify({
             error: 'Server not found',
@@ -659,10 +711,10 @@ const healthServer = http.createServer((req, res) => {
               code: connectError.code
             });
 
-            res.writeHead(503, {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*'
-            });
+          res.writeHead(503, {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': accessOrigin
+          });
             res.end(JSON.stringify({
               error: 'Server unreachable',
               message: `Cannot connect to ${targetServer.name} at ${targetServer.baseURL}`,
@@ -702,9 +754,9 @@ const healthServer = http.createServer((req, res) => {
 
         res.writeHead(200, {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': accessOrigin,
           'Access-Control-Allow-Methods': 'POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type'
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization'
         });
         res.end(JSON.stringify({
           success: true,
@@ -721,7 +773,7 @@ const healthServer = http.createServer((req, res) => {
         logger.error('Error switching servers', { requestId, error: error.message, stack: error.stack });
         res.writeHead(500, {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
+          'Access-Control-Allow-Origin': accessOrigin
         });
         res.end(JSON.stringify({
           error: 'Server switch failed',

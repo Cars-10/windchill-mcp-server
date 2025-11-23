@@ -12,6 +12,7 @@
     "dev:server": "tsx watch src/index.ts",
     "dev:ui": "cd angular-ui && npm start",
     "build": "tsc",
+    "format": "prettier --write .",
     "start": "node dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "docker:build": "docker compose -f docker/docker-compose.yml build",
@@ -46,6 +47,7 @@
     "@types/node": "^24.6.2",
     "@types/winston": "^2.4.4",
     "concurrently": "^9.2.1",
+    "prettier": "^3.6.2",
     "tsx": "^4.20.6",
     "typescript": "latest"
   }

@@ -1,84 +1,77 @@
+/**
+ * @fileoverview Classification Structure Agent - Token-Efficient MCP Tools
+ */
+
 import { BaseAgent } from './base-agent.js';
 import { apiEndpoints } from '../config/windchill.js';
-import { ToolParams, ToolResult } from '../types/common.js';
+import { ToolDefinition, ToolAnnotations } from '../types/common.js';
+import {
+  STANDARD_LIST_SCHEMA_PROPS,
+  FORMAT_SCHEMA_PROPS,
+  buildListResponse,
+  buildSingleItemResponse,
+  buildErrorResponse,
+  buildODataPagination,
+  buildTextFilter,
+  combineFilters
+} from '../utils/response-formatter.js';
 
-/**
- * ClfStructureAgent provides tools for classification/taxonomy management.
- *
- * **Features:**
- * - list_classification_nodes: List classification nodes
- * - get_classification_node: Get node details
- * - get_child_nodes: Get child nodes in hierarchy
- */
+const CLF_FIELDS = ['ID', 'Name', 'Description', 'ParentNode'] as const;
+const CLF_COLUMNS = { Name: 'Name', Description: 'Description', ParentNode: 'Parent' };
+const READ_ONLY: ToolAnnotations = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true };
+
 export class ClfStructureAgent extends BaseAgent {
   protected agentName = 'clfstructure';
 
-  protected tools = [
+  protected tools: ToolDefinition[] = [
     {
       name: 'list_classification_nodes',
-      description: 'List classification/taxonomy nodes',
+      description: `List classification/taxonomy nodes.
+
+**Parameters:** parentNode, name (wildcards), limit/offset, response_format
+**Example:** { "parentNode": "12345" }`,
       inputSchema: {
         type: 'object',
         properties: {
-          parentNode: {
-            type: 'string',
-            description: 'Filter by parent node OID'
-          },
-          name: {
-            type: 'string',
-            description: 'Filter by node name'
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of results'
-          }
+          parentNode: { type: 'string', description: 'Filter by parent node OID' },
+          name: { type: 'string', description: 'Node name filter' },
+          ...STANDARD_LIST_SCHEMA_PROPS
         },
         required: []
       },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const queryParams = new URLSearchParams();
-        const filters = [];
-
-        if (params.parentNode) {
-          filters.push(`ParentNode eq '${params.parentNode}'`);
-        }
-
-        if (params.name) {
-          filters.push(`contains(Name,'${params.name}')`);
-        }
-
-        if (filters.length > 0) {
-          queryParams.append('$filter', filters.join(' and '));
-        }
-
-        if (params.limit) {
-          queryParams.append('$top', String(params.limit));
-        }
-
-        const response = await this.api.get(
-          `${apiEndpoints.classification}/ClassificationNodes?${queryParams.toString()}`
-        );
-        return response.data;
+      annotations: { title: 'List Classification Nodes', ...READ_ONLY },
+      handler: async (params: any) => {
+        try {
+          const filters: string[] = [];
+          if (params.parentNode) filters.push(`ParentNode eq '${params.parentNode}'`);
+          if (params.name) filters.push(buildTextFilter('Name', params.name));
+          const queryParams = buildODataPagination(params);
+          if (filters.length > 0) queryParams.append('$filter', combineFilters(filters));
+          const response = await this.api.get(`${apiEndpoints.classification}/ClassificationNodes?${queryParams.toString()}`);
+          return buildListResponse(response.data, params, { title: 'Classification Nodes', conciseFields: CLF_FIELDS, markdownColumns: CLF_COLUMNS });
+        } catch (error) { return buildErrorResponse(error, { operation: 'list classification nodes' }); }
       }
     },
     {
       name: 'get_classification_node',
-      description: 'Get detailed classification node information',
+      description: `Get classification node details.
+
+**Parameters:** nodeId (required), response_format
+**Example:** { "nodeId": "12345" }`,
       inputSchema: {
         type: 'object',
         properties: {
-          nodeId: {
-            type: 'string',
-            description: 'Classification node OID'
-          }
+          nodeId: { type: 'string', description: 'Classification node OID' },
+          ...FORMAT_SCHEMA_PROPS
         },
         required: ['nodeId']
       },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const response = await this.api.get(
-          `${apiEndpoints.classification}/ClassificationNodes('${params.nodeId}')`
-        );
-        return response.data;
+      annotations: { title: 'Get Classification Node', ...READ_ONLY },
+      handler: async (params: any) => {
+        try {
+          const response = await this.api.get(`${apiEndpoints.classification}/ClassificationNodes('${params.nodeId}')`);
+          return buildSingleItemResponse(response.data, params, { title: `Classification Node: ${params.nodeId}`, conciseFields: CLF_FIELDS });
+        } catch (error) { return buildErrorResponse(error, { operation: 'get classification node' }); }
       }
     }
   ];

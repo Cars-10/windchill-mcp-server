@@ -1,6 +1,6 @@
 # Windchill MCP Server
 
-A comprehensive Model Context Protocol (MCP) server for PTC Windchill 13.0.2.x that enables Claude and other AI assistants to interact with Windchill PLM systems through a standardized interface with 64+ tools across 7 specialized agents, including dynamic server switching.
+A comprehensive Model Context Protocol (MCP) server for PTC Windchill 13.0.2.x that enables Claude and other AI assistants to interact with Windchill PLM systems through a standardized interface with 180+ tools across 20 specialized agents, including dynamic server switching and token-efficient response formatting.
 
 ## 🚀 Quick Start
 
@@ -190,7 +190,18 @@ The web interface fully implements the MCP JSON-RPC 2.0 specification:
 
 ## 📋 Features
 
-### Recent Enhancements (v1.2.0)
+### Recent Enhancements (v1.3.0)
+
+**Token Efficiency Optimization:**
+- ✅ **Response format options** - Choose between `markdown` (token-efficient) or `json` (complete)
+- ✅ **Detail levels** - Choose `concise` (essential fields) or `detailed` (all fields)
+- ✅ **Pagination metadata** - `has_more`, `next_offset`, `total_count` for smart pagination
+- ✅ **Character limit enforcement** - 25,000 char limit with graceful truncation
+- ✅ **Tool annotations** - MCP-compliant hints: `readOnlyHint`, `destructiveHint`, `idempotentHint`
+- ✅ **Standardized utilities** - Shared `response-formatter.ts` module for consistent responses
+- ✅ **Up to 10x token reduction** - Significant cost savings for LLM interactions
+
+### Previous Enhancements (v1.2.0)
 
 **Claude Desktop Integration:**
 - ✅ **Native stdio support** for seamless Claude Desktop integration
@@ -221,31 +232,39 @@ The web interface fully implements the MCP JSON-RPC 2.0 specification:
 - **Content management** with upload/download and attachment handling
 - **Relationship management** for document linking and references
 
-### Agents
+### Agents (20 Agents, 180+ Tools)
 
-- **Part Agent**: Part management, BOM structures, part searches (24 tools)
-- **Document Agent**: Comprehensive document management with 25 tools:
-  - **Core Lifecycle**: Create, update, checkout, checkin, revise documents
-  - **Version Management**: Version history, iterations, iteration notes
-  - **Content Management**: Upload/download content, attachment handling
-  - **Relationship Management**: Document references and linking
-  - **Advanced Search**: Multi-criteria search with date/lifecycle filters
-  - **Bulk Operations**: Batch updates and lifecycle actions
+**Core Domain Agents:**
+- **Part Agent**: Part management, BOM structures, part searches (16 tools)
+- **Document Agent**: Comprehensive document management (25 tools)
 - **Change Agent**: Change request management (16 tools)
-- **Workflow Agent**: Workflow items and processes (~12 tools)
-- **Project Agent**: Project management operations (~10 tools)
+- **Workflow Agent**: Workflow items and processes (16 tools)
+- **Project Agent**: Project management operations (17 tools)
 - **DataAdmin Agent**: Container/context discovery and management (13 tools)
-  - **Container Discovery**: List products, libraries, organizations, projects
-  - **Structure Navigation**: Folders and folder contents
-  - **Configuration Management**: Option pools and option sets for products/libraries
-- **ServerManager Agent**: Multi-server management and switching (5 tools) **NEW**
-  - **Server Discovery**: List all configured servers with connection details
-  - **Dynamic Switching**: Switch between Production/Development/Test environments on-the-fly
-  - **Connection Testing**: Test server connectivity before switching
-  - **Session Management**: Get current server and detailed server information
+- **ServerManager Agent**: Multi-server management and switching (5 tools)
+
+**Tier 1 Agents (High Priority):**
+- **PrincipalMgmt Agent**: User, group, role, and team management (16 tools)
+- **ProdPlatformMgmt Agent**: Options & Variants configuration (12 tools)
+- **NavCriteria Agent**: BOM navigation and filtering (8 tools)
+- **PartListMgmt Agent**: Parts lists and favorites (10 tools)
+
+**Tier 2 Agents (Module-Specific):**
+- **Manufacturing Agent**: Manufacturing data - requires MPMLink (6 tools)
+- **Quality Agent**: Quality management - requires QMS (6 tools)
+
+**Tier 3 Agents (Specialized Features):**
+- **Visualization Agent**: Creo View visualization services (3 tools)
+- **EffectivityMgmt Agent**: Date/unit effectivity management (2 tools)
+- **CADDocumentMgmt Agent**: CAD-specific document operations (2 tools)
+- **ClfStructure Agent**: Classification/taxonomy management (2 tools)
+- **SavedSearch Agent**: Saved search management (3 tools)
+- **ServiceInfoMgmt Agent**: Service information/technical publications (2 tools)
+- **PTC Agent**: Common utility entities (2 tools)
 
 ### Capabilities
 
+- **Token-efficient responses** with markdown/JSON format options and detail levels
 - Session-based authentication with CSRF token management
 - Automatic re-authentication on session expiry
 - Comprehensive HTTP method support (GET, POST, PUT, PATCH, DELETE)
@@ -254,23 +273,36 @@ The web interface fully implements the MCP JSON-RPC 2.0 specification:
 - Extensible agent-based architecture
 - Comprehensive error handling and logging
 - Bulk operation support for efficient processing
+- **Smart pagination** with has_more, next_offset, and total_count metadata
 
 ## 🏗️ Architecture
 
 ```
 windchill-mcp-server/
 ├── src/
-│   ├── agents/          # Agent implementations
+│   ├── agents/          # Agent implementations (20 agents)
 │   │   ├── base-agent.ts
 │   │   ├── part-agent.ts
-│   │   ├── change-agent.ts
 │   │   ├── document-agent.ts
+│   │   ├── change-agent.ts
 │   │   ├── workflow-agent.ts
-│   │   └── project-agent.ts
+│   │   ├── project-agent.ts
+│   │   ├── dataadmin-agent.ts
+│   │   ├── principalmgmt-agent.ts
+│   │   ├── prodplatformmgmt-agent.ts
+│   │   ├── navcriteria-agent.ts
+│   │   ├── partlistmgmt-agent.ts
+│   │   ├── manufacturing-agent.ts
+│   │   ├── quality-agent.ts
+│   │   └── ... (+ 7 more specialized agents)
 │   ├── config/          # Configuration
 │   │   └── windchill.ts
 │   ├── services/        # API services
 │   │   └── windchill-api.ts
+│   ├── utils/           # Shared utilities
+│   │   └── response-formatter.ts  # Token-efficient response formatting
+│   ├── types/           # TypeScript type definitions
+│   │   └── common.ts
 │   └── index.ts         # Main entry point
 ├── docker/
 │   ├── Dockerfile           # Production container
@@ -331,19 +363,54 @@ npm run docker:dev       # Start development container
 
 ```typescript
 import { BaseAgent } from "./base-agent.js";
+import { ToolDefinition, ToolAnnotations } from "../types/common.js";
+import {
+  STANDARD_LIST_SCHEMA_PROPS,
+  FORMAT_SCHEMA_PROPS,
+  buildListResponse,
+  buildSingleItemResponse,
+  buildErrorResponse,
+  buildODataPagination,
+} from "../utils/response-formatter.js";
+
+const READ_ONLY: ToolAnnotations = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: true,
+};
 
 export class MyAgent extends BaseAgent {
   protected agentName = "my-agent";
 
-  protected tools = [
+  protected tools: ToolDefinition[] = [
     {
-      name: "my_tool",
-      description: "Tool description",
+      name: "list_items",
+      description: `List items with token-efficient response.
+
+**Parameters:** name, limit/offset, response_format
+**Example:** { "name": "Widget*", "limit": 20 }`,
       inputSchema: {
-        /* JSON schema */
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Filter by name" },
+          ...STANDARD_LIST_SCHEMA_PROPS,
+        },
+        required: [],
       },
-      handler: async (params) => {
-        /* implementation */
+      annotations: { title: "List Items", ...READ_ONLY },
+      handler: async (params: any) => {
+        try {
+          const queryParams = buildODataPagination(params);
+          const response = await this.api.get(`/MyEndpoint?${queryParams}`);
+          return buildListResponse(response.data, params, {
+            title: "Items",
+            conciseFields: ["ID", "Name", "State"],
+            markdownColumns: { Name: "Name", State: "State" },
+          });
+        } catch (error) {
+          return buildErrorResponse(error, { operation: "list items" });
+        }
       },
     },
   ];

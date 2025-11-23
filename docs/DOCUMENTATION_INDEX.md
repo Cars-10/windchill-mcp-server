@@ -43,7 +43,8 @@ docs/
 - Quick setup instructions (wizard and manual)
 - Docker deployment options
 - Angular UI overview with MCP JSON-RPC 2.0 support
-- Tool overview (42+ tools across 5 agents)
+- Tool overview (180+ tools across 20 agents)
+- Token efficiency features (v1.3.0)
 - Basic troubleshooting
 
 ### 🏗️ ARCHITECTURE.md
@@ -51,7 +52,8 @@ docs/
 **Purpose:** System design and architecture
 **Key Content:**
 - Complete system architecture diagrams
-- Agent-based design patterns
+- Agent-based design patterns (20 agents)
+- Response formatter utility module
 - Core component descriptions
 - Data flow and request lifecycle
 - Configuration architecture
@@ -64,10 +66,11 @@ docs/
 **Purpose:** Complete API documentation
 **Key Content:**
 - MCP JSON-RPC 2.0 protocol details
-- All 42+ tool definitions with parameters and schemas
-- Part Agent tools (4 tools)
+- Token-efficient response format options (markdown/json)
+- All 180+ tool definitions with parameters and schemas
+- Part Agent tools (16 tools)
 - Document Agent tools (25 tools) - most comprehensive
-- Change, Workflow, and Project Agent tools
+- 18 additional specialized agents
 - Error handling and status codes
 - Authentication and security
 - Usage examples and best practices
@@ -108,7 +111,9 @@ docs/
 **Purpose:** Creating and extending agents
 **Key Content:**
 - Agent architecture and lifecycle
+- **Token efficiency best practices (Section 0)**
 - Step-by-step agent creation
+- Response formatter utility usage
 - Advanced agent features (bulk operations, file uploads, relationships)
 - Testing patterns (unit and integration)
 - Best practices for error handling, validation, and performance
@@ -123,6 +128,7 @@ docs/
 | System Overview | ✓ | ✓ | | | | |
 | Architecture Details | | ✓ | | ✓ | | ✓ |
 | API Documentation | | | ✓ | | | |
+| **Token Efficiency** | ✓ | ✓ | ✓ | | | ✓ |
 | Tool Specifications | ✓ | | ✓ | | | ✓ |
 | Development Setup | ✓ | | | ✓ | | ✓ |
 | Docker Configuration | ✓ | | | ✓ | ✓ | |

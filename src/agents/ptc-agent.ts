@@ -1,71 +1,71 @@
+/**
+ * @fileoverview PTC Agent - Token-Efficient MCP Tools for PTC Common Utilities
+ */
+
 import { BaseAgent } from './base-agent.js';
 import { apiEndpoints } from '../config/windchill.js';
-import { ToolParams, ToolResult } from '../types/common.js';
+import { ToolDefinition, ToolAnnotations } from '../types/common.js';
+import {
+  STANDARD_LIST_SCHEMA_PROPS,
+  FORMAT_SCHEMA_PROPS,
+  buildListResponse,
+  buildSingleItemResponse,
+  buildErrorResponse,
+  buildODataPagination
+} from '../utils/response-formatter.js';
 
-/**
- * PTCAgent provides tools for PTC common utility entities.
- *
- * **Features:**
- * - list_entities: List common PTC entities
- * - get_entity: Get entity details
- * - get_entity_attributes: Get entity attributes
- */
+const ENTITY_FIELDS = ['ID', 'Name', 'EntityType', 'Description'] as const;
+const ENTITY_COLUMNS = { Name: 'Name', EntityType: 'Type', Description: 'Description' };
+const READ_ONLY: ToolAnnotations = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true };
+
 export class PTCAgent extends BaseAgent {
   protected agentName = 'ptc';
 
-  protected tools = [
+  protected tools: ToolDefinition[] = [
     {
       name: 'list_entities',
-      description: 'List PTC common entities (EXPERIMENTAL)',
+      description: `List PTC common entities (EXPERIMENTAL).
+
+**Parameters:** entityType, limit/offset, response_format
+**Example:** { "entityType": "WTPart" }`,
       inputSchema: {
         type: 'object',
         properties: {
-          entityType: {
-            type: 'string',
-            description: 'Filter by entity type'
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of results'
-          }
+          entityType: { type: 'string', description: 'Filter by entity type' },
+          ...STANDARD_LIST_SCHEMA_PROPS
         },
         required: []
       },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const queryParams = new URLSearchParams();
-
-        if (params.entityType) {
-          queryParams.append('$filter', `EntityType eq '${params.entityType}'`);
-        }
-
-        if (params.limit) {
-          queryParams.append('$top', String(params.limit));
-        }
-
-        const response = await this.api.get(
-          `${apiEndpoints.ptc}/Entities?${queryParams.toString()}`
-        );
-        return response.data;
+      annotations: { title: 'List PTC Entities', ...READ_ONLY },
+      handler: async (params: any) => {
+        try {
+          const queryParams = buildODataPagination(params);
+          if (params.entityType) queryParams.append('$filter', `EntityType eq '${params.entityType}'`);
+          const response = await this.api.get(`${apiEndpoints.ptc}/Entities?${queryParams.toString()}`);
+          return buildListResponse(response.data, params, { title: 'PTC Entities', conciseFields: ENTITY_FIELDS, markdownColumns: ENTITY_COLUMNS });
+        } catch (error) { return buildErrorResponse(error, { operation: 'list PTC entities' }); }
       }
     },
     {
       name: 'get_entity',
-      description: 'Get detailed PTC entity information',
+      description: `Get PTC entity details.
+
+**Parameters:** entityId (required), response_format
+**Example:** { "entityId": "12345" }`,
       inputSchema: {
         type: 'object',
         properties: {
-          entityId: {
-            type: 'string',
-            description: 'Entity OID'
-          }
+          entityId: { type: 'string', description: 'Entity OID' },
+          ...FORMAT_SCHEMA_PROPS
         },
         required: ['entityId']
       },
-      handler: async (params: ToolParams): Promise<ToolResult> => {
-        const response = await this.api.get(
-          `${apiEndpoints.ptc}/Entities('${params.entityId}')`
-        );
-        return response.data;
+      annotations: { title: 'Get PTC Entity', ...READ_ONLY },
+      handler: async (params: any) => {
+        try {
+          const response = await this.api.get(`${apiEndpoints.ptc}/Entities('${params.entityId}')`);
+          return buildSingleItemResponse(response.data, params, { title: `PTC Entity: ${params.entityId}`, conciseFields: ENTITY_FIELDS });
+        } catch (error) { return buildErrorResponse(error, { operation: 'get PTC entity' }); }
       }
     }
   ];
