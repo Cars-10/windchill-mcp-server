@@ -1485,6 +1485,541 @@ MONTH 3: THE IDENTITY
 
 ---
 
+### 12. AUTOMATED SOCIAL DROPS: The Hype Machine
+
+```
+"Every achievement is a potential post.
+ Every failure is a shareable moment.
+ The algorithm is your crew."
+```
+
+#### 12.1 Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    SOCIAL DROPS PIPELINE                            │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  TRIGGER                 GENERATE                 DISTRIBUTE        │
+│  ───────                 ────────                 ──────────        │
+│                                                                     │
+│  ┌─────────┐            ┌─────────┐             ┌─────────┐        │
+│  │ Event   │            │ Content │             │ Social  │        │
+│  │ System  │───────────▶│ Engine  │────────────▶│ APIs    │        │
+│  └─────────┘            └─────────┘             └─────────┘        │
+│       │                      │                       │              │
+│       │                      │                       │              │
+│  • Level up             • Image gen             • Twitter/X        │
+│  • Badge earned         • Video gen             • Instagram        │
+│  • Sven passed          • Meme gen              • TikTok           │
+│  • Sven denied          • Card gen              • LinkedIn         │
+│  • Streak milestone     • Thread gen            • Discord          │
+│  • BPM achievement      • Audio clip            • Bluesky          │
+│  • Crew victory                                 • Threads          │
+│  • Speed run record                                                │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### 12.2 Trigger Events
+
+```typescript
+// ~/.C10/config.toml - User preferences
+[social]
+auto_share = true
+platforms = ["twitter", "discord", "linkedin"]
+share_failures = true           # "Post your L" culture
+share_achievements = true
+mention_crew = true
+include_bpm = true
+privacy_mode = false            # Anonymize stats if true
+
+// Event types that trigger content generation
+type SocialTrigger =
+  | { type: 'level_up', from: Level, to: Level }
+  | { type: 'badge_earned', badge: Badge }
+  | { type: 'sven_passed', challenge: string, attempts: number }
+  | { type: 'sven_denied', challenge: string, feedback: string }
+  | { type: 'streak_milestone', days: number }
+  | { type: 'bpm_achievement', bpm: number, genre: string }
+  | { type: 'speed_run', challenge: string, time: number, rank: number }
+  | { type: 'crew_victory', crew: Crew, challenge: string }
+  | { type: 'first_contribution', type: 'drop' | 'review' | 'mentor' }
+  | { type: 'berghainer_achieved' }
+```
+
+#### 12.3 Content Generation Engine
+
+**Image Generation (Achievement Cards)**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │                                                               │  │
+│  │   ██████╗ ██╗ ██████╗                                        │  │
+│  │  ██╔════╝███║██╔═████╗                                       │  │
+│  │  ██║     ╚██║██║██╔██║    @CodeKraft just hit                │  │
+│  │  ██║      ██║████╔╝██║                                       │  │
+│  │  ╚██████╗ ██║╚██████╔╝    R E G U L A R                      │  │
+│  │   ╚═════╝ ╚═╝ ╚═════╝                                        │  │
+│  │                           ━━━━━━━━━━━━━━━━━━                  │  │
+│  │   ♫ 127 BPM | 🔥 23 days | ⚡ 5,240 XP                       │  │
+│  │                                                               │  │
+│  │   "The line just got shorter."                               │  │
+│  │                                                               │  │
+│  │   ░░░░░░░░░░░░░░████████████████░░░░░░░░░░░░░░               │  │
+│  │   CURIOUS → TOURIST → [REGULAR] → RESIDENT → BERGHAINER      │  │
+│  │                                                               │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│  Template: level_up_card.svg                                       │
+│  Generated: Sharp + SVG injection                                  │
+│  Formats: 1080x1080 (IG), 1200x675 (Twitter), 1080x1920 (Stories) │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**"Denied" Cards (The L)**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │                                                               │  │
+│  │                        🚫                                     │  │
+│  │                                                               │  │
+│  │                    D E N I E D                                │  │
+│  │                                                               │  │
+│  │              @CodeKraft vs Sven Challenge #3                  │  │
+│  │                                                               │  │
+│  │   ┌─────────────────────────────────────────────────────┐    │  │
+│  │   │  "Need more practice with async patterns.           │    │  │
+│  │   │   Come back next week."                             │    │  │
+│  │   │                                    — Sven           │    │  │
+│  │   └─────────────────────────────────────────────────────┘    │  │
+│  │                                                               │  │
+│  │   Attempt: 2/∞  |  Time in queue: 34h 12m                    │  │
+│  │                                                               │  │
+│  │   #PostYourL #C10 #SvenSaidNo                                │  │
+│  │                                                               │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Video Generation (Micro-Clips)**
+
+```typescript
+// Auto-generated video for achievements
+interface VideoClip {
+  duration: 5-15 seconds
+  format: 'vertical' | 'square' | 'horizontal'
+  elements: [
+    { type: 'background', source: 'berghain_loop.mp4' },
+    { type: 'text_animation', content: achievement.title },
+    { type: 'stats_reveal', data: user.stats },
+    { type: 'sound', source: 'bass_drop.wav' },
+    { type: 'particles', style: 'confetti' | 'glitch' }
+  ]
+  output: ['mp4', 'gif', 'webm']
+}
+
+// Tools: FFmpeg + Motion Canvas / Remotion
+```
+
+#### 12.4 Platform-Specific Formatting
+
+```typescript
+interface PlatformContent {
+  twitter: {
+    text: string;          // 280 chars max
+    media: Image | Video;
+    hashtags: string[];
+    thread?: string[];     // For longer achievements
+  };
+
+  instagram: {
+    image: Image;          // 1080x1080 or 1080x1350
+    caption: string;
+    hashtags: string[];    // Up to 30
+    story?: {
+      image: Image;        // 1080x1920
+      sticker?: 'poll' | 'question' | 'countdown';
+    };
+  };
+
+  tiktok: {
+    video: Video;          // 9:16, 15-60s
+    caption: string;
+    sounds?: string;       // Original techno track
+    hashtags: string[];
+  };
+
+  linkedin: {
+    text: string;          // Professional angle
+    image: Image;
+    hashtags: string[];    // Keep it minimal
+  };
+
+  discord: {
+    embed: DiscordEmbed;
+    channel: 'achievements' | 'sven-stories' | 'crew-wins';
+    mentions?: string[];   // Crew members
+  };
+}
+```
+
+#### 12.5 Content Templates
+
+**Achievement Copy Bank**
+
+```yaml
+level_up:
+  curious_to_tourist:
+    - "Packed my bags. Heading to Berlin. 🧳 #C10"
+    - "Just left the house. The journey begins."
+    - "U-Bahn ticket: purchased. Let's go."
+
+  tourist_to_regular:
+    - "I know the way now. See you at the door. 🎧"
+    - "No longer a tourist. The walk continues."
+    - "Getting closer. Can hear the bass."
+
+  regular_to_resident:
+    - "The line knows my face now. 🖤"
+    - "Almost there. Sven, I'm ready."
+    - "Resident status. The door is in sight."
+
+  resident_to_berghainer:
+    - "I'M IN. 🚀 #Berghainer"
+    - "The door opened. See you on the dance floor."
+    - "After [X] hours in the queue... I made it."
+
+sven_denied:
+  - "Sven said no. But I'll be back. 🚫 #PostYourL"
+  - "Denied. The queue continues. #C10"
+  - "Not today. But definitely next week."
+  - "L taken. Lesson learned. Loading..."
+
+sven_passed:
+  - "Sven nodded. Through the door. ✓"
+  - "[Challenge] complete. Next stop: [NextChallenge]"
+  - "Attempt [N]. Finally. 💪"
+
+streak:
+  7_days: "One week in the queue. Still here. 🔥"
+  30_days: "30 days. The line is my home now."
+  100_days: "100 days. I live here. 🏠"
+  365_days: "365 days. I AM the queue. 👑"
+
+bpm:
+  hit_100: "Finally warming up. 100 BPM. 🎵"
+  hit_120: "Techno territory. 120 BPM. Let's go."
+  hit_140: "Trance state achieved. 140 BPM. 🔥"
+  sustained: "Held [X] BPM for [Y] sessions. In the zone."
+```
+
+#### 12.6 Automation Pipeline
+
+```typescript
+// ~/.C10/social/queue.json - Pending posts
+interface SocialQueue {
+  pending: QueuedPost[];
+  scheduled: ScheduledPost[];
+  posted: PostedContent[];
+}
+
+// Service architecture
+class SocialDropsService {
+  // Listen for achievement events
+  async onEvent(trigger: SocialTrigger) {
+    // 1. Check user preferences
+    if (!user.social.auto_share) return;
+
+    // 2. Generate content
+    const content = await this.contentEngine.generate(trigger);
+
+    // 3. User approval (optional)
+    if (user.social.require_approval) {
+      await this.queueForApproval(content);
+      return;
+    }
+
+    // 4. Schedule or post immediately
+    const timing = this.calculateOptimalTime(user, trigger);
+    await this.schedule(content, timing);
+  }
+
+  // Smart timing based on engagement data
+  calculateOptimalTime(user: User, trigger: SocialTrigger): Date {
+    // Immediate for big achievements
+    if (trigger.type === 'berghainer_achieved') return new Date();
+
+    // Peak hours for regular posts
+    return this.getNextPeakHour(user.timezone);
+  }
+}
+```
+
+#### 12.7 CLI Integration
+
+```bash
+# Manual trigger
+c10 share --last              # Share most recent achievement
+c10 share --level-up          # Share level up specifically
+c10 share --denied            # Share your L (brave)
+c10 share --stats             # Share current stats card
+
+# Preview before posting
+c10 share --preview           # Generate but don't post
+c10 share --preview --format story  # Preview as Instagram story
+
+# Queue management
+c10 social queue              # View pending posts
+c10 social approve 3          # Approve post #3
+c10 social skip 3             # Skip post #3
+c10 social pause              # Pause auto-sharing
+c10 social resume             # Resume auto-sharing
+
+# Analytics
+c10 social stats              # View engagement metrics
+c10 social top                # Your most engaged posts
+```
+
+#### 12.8 Discord Bot Integration
+
+```typescript
+// Automatic Discord posts to community server
+const discordBot = {
+  channels: {
+    achievements: '#level-ups',
+    svenStories: '#sven-stories',
+    crewWins: '#crew-victories',
+    speedRuns: '#speed-runs',
+    berghainers: '#new-berghainers'  // Special channel
+  },
+
+  // Auto-post format
+  postAchievement: async (user: User, achievement: Achievement) => {
+    const embed = new EmbedBuilder()
+      .setColor(achievement.type === 'denied' ? '#ff3366' : '#00ff88')
+      .setTitle(achievement.title)
+      .setDescription(achievement.description)
+      .setThumbnail(user.avatar)
+      .addFields(
+        { name: 'BPM', value: user.bpm.toString(), inline: true },
+        { name: 'Streak', value: `${user.streak} days`, inline: true },
+        { name: 'Level', value: user.level, inline: true }
+      )
+      .setFooter({ text: `Time in queue: ${user.timeInQueue}` });
+
+    await channel.send({ embeds: [embed] });
+
+    // React with custom emojis
+    await message.react(':berghain_approved:');
+  }
+};
+```
+
+#### 12.9 Viral Mechanics
+
+**Shareable Challenges**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  CHALLENGE DROP                                                     │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  @CodeKraft challenges you to:                                     │
+│                                                                     │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │  "FISH SHELL SPEED RUN"                                       │  │
+│  │                                                               │  │
+│  │  Configure Fish from scratch in under 5 minutes              │  │
+│  │  Current record: 3:42 by @BeatMaster                         │  │
+│  │                                                               │  │
+│  │  [ACCEPT CHALLENGE]                                          │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│  🔗 c10.dev/challenge/fish-speed-run?ref=CodeKraft               │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Crew Call-Outs**
+
+```typescript
+// When crew achieves something together
+const crewPost = {
+  text: `CREW [${crew.name}] just cleared Sven Challenge #4 together!
+
+  @member1 @member2 @member3 @member4
+
+  Combined BPM: ${crew.avgBpm} | Streak: ${crew.combinedStreak} days
+
+  Who's next? 👀 #C10Crews`,
+
+  // Tag all members (with permission)
+  mentions: crew.members.filter(m => m.allowMentions)
+};
+```
+
+**Weekly Automated Drops**
+
+```yaml
+# Scheduled content that posts automatically
+weekly_drops:
+  monday:
+    - type: "week_preview"
+      content: "This week in the queue: [upcoming challenges, new content]"
+
+  wednesday:
+    - type: "mid_week_stats"
+      content: "Halfway there. [X] people leveled up. [Y] got denied. Keep pushing."
+
+  friday:
+    - type: "friday_night_fights"
+      content: "🥊 FRIDAY NIGHT FIGHTS starting in 3 hours. Who's in?"
+
+  sunday:
+    - type: "weekly_recap"
+      content: "This week: [new berghainers], [total XP earned], [longest streak]"
+
+monthly_drops:
+  first_of_month:
+    - type: "monthly_leaderboard"
+    - type: "new_season_announcement" # if applicable
+
+  fifteenth:
+    - type: "halfway_stats"
+    - type: "spotlight_creators" # Top user-generated drops
+```
+
+#### 12.10 Analytics & Optimization
+
+```typescript
+// Track what content performs best
+interface SocialAnalytics {
+  byType: {
+    level_up: EngagementMetrics;
+    denied: EngagementMetrics;      // Often highest engagement!
+    streak: EngagementMetrics;
+    crew: EngagementMetrics;
+  };
+
+  byPlatform: {
+    twitter: PlatformMetrics;
+    instagram: PlatformMetrics;
+    tiktok: PlatformMetrics;
+    linkedin: PlatformMetrics;
+  };
+
+  byTime: {
+    hourOfDay: number[];
+    dayOfWeek: number[];
+  };
+
+  // A/B test different copy
+  copyVariants: {
+    variantA: { copy: string; engagement: number };
+    variantB: { copy: string; engagement: number };
+  };
+}
+
+// Feed back into content generation
+class ContentOptimizer {
+  async selectCopy(trigger: SocialTrigger): Promise<string> {
+    const variants = this.copyBank[trigger.type];
+    const performance = await this.getHistoricalPerformance(variants);
+
+    // 80% best performer, 20% exploration
+    if (Math.random() < 0.8) {
+      return performance.topPerformer;
+    }
+    return this.selectRandom(variants);
+  }
+}
+```
+
+#### 12.11 User Controls & Privacy
+
+```toml
+# ~/.C10/config.toml
+[social]
+enabled = true
+
+[social.auto_share]
+level_ups = true
+badges = true
+sven_passed = true
+sven_denied = true              # Opt-in to share failures
+streaks = "milestones"          # "all" | "milestones" | "none"
+speed_runs = true
+crew_achievements = true
+
+[social.privacy]
+show_real_name = false          # Use DJ name only
+show_bpm = true
+show_time_in_queue = true
+anonymize_stats = false
+blur_code_snippets = false      # For screenshots
+
+[social.platforms]
+twitter = { enabled = true, handle = "@myhandle" }
+instagram = { enabled = false }
+linkedin = { enabled = true, professional_mode = true }
+discord = { enabled = true, server = "c10-community" }
+
+[social.approval]
+require_approval = false        # Review before posting
+approval_timeout = "24h"        # Auto-skip if not approved
+notify_on_generate = true       # Push notification when content ready
+
+[social.schedule]
+post_immediately = false
+preferred_times = ["09:00", "12:00", "18:00"]
+timezone = "Europe/Berlin"
+max_posts_per_day = 2
+```
+
+#### 12.12 Technical Stack
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    SOCIAL DROPS TECH STACK                          │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  IMAGE GENERATION                                                  │
+│  ├── Sharp (Node.js image processing)                              │
+│  ├── Satori (HTML/CSS to SVG)                                      │
+│  ├── @vercel/og (Open Graph images)                                │
+│  └── Cloudinary (CDN + transformations)                            │
+│                                                                     │
+│  VIDEO GENERATION                                                  │
+│  ├── Remotion (React → Video)                                      │
+│  ├── FFmpeg (processing + encoding)                                │
+│  └── Motion Canvas (programmatic animations)                       │
+│                                                                     │
+│  SOCIAL APIs                                                       │
+│  ├── Twitter API v2 (tweets, threads, media)                       │
+│  ├── Instagram Graph API (posts, stories)                          │
+│  ├── TikTok API (video uploads)                                    │
+│  ├── LinkedIn API (posts, articles)                                │
+│  ├── Discord.js (bot, embeds, webhooks)                            │
+│  └── Bluesky AT Protocol (posts)                                   │
+│                                                                     │
+│  SCHEDULING & QUEUE                                                │
+│  ├── BullMQ (job queue)                                            │
+│  ├── Redis (queue storage)                                         │
+│  └── node-cron (scheduled posts)                                   │
+│                                                                     │
+│  STORAGE                                                           │
+│  ├── ~/.C10/social/generated/    (local cache)                     │
+│  ├── S3/R2 (cloud storage)                                         │
+│  └── PostgreSQL (post history, analytics)                          │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Summary
 
 This platform combines:
