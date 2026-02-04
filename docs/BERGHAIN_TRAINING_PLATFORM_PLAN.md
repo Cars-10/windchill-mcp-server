@@ -16,6 +16,136 @@ Just as Berghain tests your authenticity, confidence, and belonging - this platf
 
 ---
 
+## The Underground: ~/.C10
+
+```
+"Berlin techno happens underground. So does C10."
+```
+
+The C10 Foundation lives in the hidden depths of your home directory, just like the best techno happens in basements and bunkers. All configuration, progress, and secrets reside in `~/.C10`.
+
+```
+~/.C10/                          # The Underground (hidden, like all good things)
+├── config.toml                  # Main configuration (your Berghain membership)
+├── identity/                    # Who you are
+│   ├── profile.json            # Your DJ name, level, stats
+│   ├── credentials.enc         # Encrypted API keys (the secret handshake)
+│   └── avatar.png              # Your look
+├── progress/                    # Your journey to the door
+│   ├── lessons.db              # SQLite: completed lessons, scores
+│   ├── achievements.json       # Badges earned
+│   ├── streaks.json            # Daily practice streaks
+│   └── bpm-history.json        # Your coding rhythm over time
+├── controllers/                 # Hardware integration
+│   ├── traktor-s2.json         # Traktor S2 control mappings
+│   ├── midi-devices.json       # Other MIDI controllers
+│   └── hid-cache/              # Cached HID descriptors
+├── themes/                      # Visual customization
+│   ├── berghain/               # Default theme
+│   │   ├── theme.json
+│   │   ├── sounds/
+│   │   └── assets/
+│   └── custom/                 # User themes
+├── content/                     # Downloaded/cached content
+│   ├── videos/                 # Cached Distler report videos
+│   ├── yoga/                   # Cached Adriene playlists
+│   └── beats/                  # Traktor samples & loops
+├── logs/                        # What happens underground stays underground
+│   ├── sessions/               # Training session logs
+│   ├── sven-attempts.log       # Your Sven challenge history
+│   └── bpm-telemetry.log       # Detailed rhythm data
+├── secrets/                     # The really hidden stuff
+│   ├── berghain-facts.json     # Unlocked lore
+│   └── easter-eggs.json        # Hidden discoveries
+└── .entrance                    # Empty file = you've been granted entry
+                                 # (Created when you pass final Sven challenge)
+```
+
+### Configuration Hierarchy
+
+Like the layers of a techno track, C10 config has depth:
+
+```
+SURFACE (Explicit)              UNDERGROUND (Hidden)
+─────────────────               ────────────────────
+ENV variables                   ~/.C10/config.toml
+  ↓                               ↓
+CLI arguments                   ~/.C10/identity/
+  ↓                               ↓
+Project .c10.toml               ~/.C10/secrets/
+  ↓                               ↓
+═══════════════════════════════════════════════════
+              FINAL CONFIGURATION
+```
+
+### Key Configuration: `~/.C10/config.toml`
+
+```toml
+# C10 Foundation Configuration
+# "The underground is where the real work happens"
+
+[identity]
+dj_name = "CodeKraft"           # Your alias
+level = "regular"               # curious|tourist|regular|resident|berghainer
+joined = 2026-02-04
+
+[rhythm]
+target_bpm = 125                # Your target coding tempo
+genre = "techno"                # ambient|house|techno|trance|gabber
+enable_beat_tracking = true
+
+[controllers]
+traktor_s2_enabled = true
+traktor_s2_mode = "hid"         # hid|midi
+custom_mappings = true
+
+[wellness]
+pre_session_yoga = true
+post_session_yoga = true
+yoga_channel = "yogawithadriene"
+meditation_prompts = true
+
+[content]
+distler_repo = "github.com/org/distler-reports"
+cache_videos = true
+offline_mode = false
+
+[theme]
+active = "berghain"
+dark_mode = true                # Always dark, like the club
+neon_accents = true
+
+[secrets]
+# Unlocked as you progress
+panorama_access = false         # Unlocked at Berghainer level
+lab_access = false              # Secret experimental features
+```
+
+### The `.entrance` File
+
+When you complete the final Sven challenge and achieve **Berghainer** status, an empty file is created:
+
+```bash
+~/.C10/.entrance
+```
+
+This file:
+- Unlocks Panorama Bar (advanced content)
+- Enables "resident" features in CLI tools
+- Grants access to contribute back to training content
+- Is your badge of honor - you made it through the door
+
+```bash
+# Check if you're "in"
+if [ -f ~/.C10/.entrance ]; then
+  echo "Welcome to the dance floor."
+else
+  echo "Keep practicing. Sven is watching."
+fi
+```
+
+---
+
 ## Domain Architecture
 
 ### 1. SKILL DOMAINS
