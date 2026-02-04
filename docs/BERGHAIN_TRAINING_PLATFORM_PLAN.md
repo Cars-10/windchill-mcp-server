@@ -16,6 +16,159 @@ Just as Berghain tests your authenticity, confidence, and belonging - this platf
 
 ---
 
+## The Berghain Ethos: Why This Metaphor Matters
+
+### It's Not Your Clothes. It's You.
+
+Berghain doesn't care about your designer labels or your LinkedIn profile. There's no dress code that guarantees entry. Sven reads *demeanor* - are you present? Are you here for the music, or are you here to be seen?
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    WHAT GETS YOU IN                                 │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ✗ NOT THIS                        ✓ THIS                          │
+│  ───────────                       ──────                          │
+│  Expensive clothes                 Comfortable in your skin        │
+│  Name-dropping                     Genuine curiosity               │
+│  Acting important                  Being present                   │
+│  Proving yourself                  Being yourself                  │
+│  Credentials                       Character                       │
+│  Entitlement                       Respect                         │
+│  "I know people"                   "I'm here for the music"        │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### The Power Plant Principle
+
+Berghain is a converted power plant - **Kraftwerk** (power station). The architecture is raw, industrial, brutal. There's no velvet rope aesthetic. No bottle service. No VIP tables. Everyone dances on the same concrete floor, under the same towering ceilings.
+
+**In C10 terms:**
+- No special treatment for senior devs
+- No shortcuts for those with fancy degrees
+- Everyone learns the same fundamentals
+- Your code speaks, not your resume
+- The terminal is the great equalizer
+
+```
+"On the deck of a power plant, everyone is equal.
+ The only hierarchy is the music."
+```
+
+### Radical Acceptance
+
+Berghain is famous for being a space where people can be exactly who they are. All types welcome. The only requirement: **respect the space and the people in it**.
+
+| Berghain Value | C10 Training Value |
+|----------------|-------------------|
+| All types welcome | All skill levels welcome |
+| No judgment | No stupid questions |
+| Respect personal space | Respect learning pace |
+| No photos (be present) | No copy-paste (understand it) |
+| Protect the vibe | Protect the culture |
+| Give space to explore | Give space to fail and learn |
+
+### The Demeanor Test
+
+When Sven looks at you in the queue, he's asking:
+
+1. **Are you going to be fun?** → Will you engage with the material joyfully?
+2. **Are you going to be respectful?** → Will you help others, not hoard knowledge?
+3. **Are you here for the right reasons?** → Do you want to learn, or just get the credential?
+4. **Can you handle what's inside?** → Are you ready to be challenged?
+5. **Will you protect the space?** → Will you contribute to the community?
+
+### No Bottle Service
+
+There is no premium tier. No "enterprise training track." No fast pass.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│   "In Berghain, a banker dances next to a barista.                 │
+│    In C10, a junior learns alongside a principal engineer.         │
+│    The music doesn't care about your title.                        │
+│    The code doesn't care about your years of experience."          │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### What Sven Is Really Checking
+
+```
+SURFACE                              DEPTH
+───────                              ─────
+Do you look nervous?          →      Are you trying to be someone you're not?
+Are you with a huge group?    →      Will you actually engage, or just spectate?
+Are you too drunk?            →      Can you handle the intensity?
+Are you taking selfies?       →      Are you here to experience, or perform?
+How do you treat the queue?   →      How will you treat the dance floor?
+```
+
+**Applied to training:**
+- Nervousness is fine (growth mindset)
+- Solo learners and groups both welcome
+- Clear mind required (no rushing through)
+- Focus on learning, not showing off
+- How you practice is how you'll perform
+
+### The 36 Hours
+
+Berghain is famous for marathon sessions - opening Friday night, closing Monday morning. The training platform embraces **endurance** and **immersion**:
+
+- Deep work sessions encouraged
+- Flow states valued over quick wins
+- "Weekend warriors" welcome (intensive learning sprints)
+- Progress measured in depth, not just completion
+
+### Denied? Come Back.
+
+Getting denied at Berghain isn't failure - it's part of the experience. Many regulars were denied multiple times before getting in. The door teaches:
+
+- **Resilience**: Rejection isn't permanent
+- **Self-reflection**: What can you adjust?
+- **Humility**: You're not entitled to entry
+- **Persistence**: The worthy return
+
+```bash
+# In ~/.C10/logs/sven-attempts.log
+2026-02-01 DENIED "Not ready for MCP concepts yet"
+2026-02-08 DENIED "Need more practice with async patterns"
+2026-02-15 ENTER  "Demonstrated solid understanding"
+```
+
+### The Unwritten Rules
+
+Berghain has unwritten rules everyone just *knows*:
+
+| Berghain Rule | C10 Equivalent |
+|---------------|----------------|
+| No phones on dance floor | No distractions during deep work |
+| Don't stare | Don't judge others' learning pace |
+| Share the space | Share knowledge freely |
+| Stay hydrated | Take breaks (yoga, meditation) |
+| Know when to go home | Know when to stop (avoid burnout) |
+| Come back next week | Maintain your streak |
+
+### The Sacred Space
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│  "Berghain isn't a nightclub. It's a church for the godless.       │
+│   The bass is the sermon. The dance floor is the congregation.     │
+│   Everyone comes to lose themselves and find something."           │
+│                                                                     │
+│   C10 isn't a training program. It's a practice.                   │
+│   The terminal is the altar. The code is the meditation.           │
+│   Everyone comes to learn and become something more.               │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## The Underground: ~/.C10
 
 ```
@@ -57,6 +210,7 @@ The C10 Foundation lives in the hidden depths of your home directory, just like 
 ├── secrets/                     # The really hidden stuff
 │   ├── berghain-facts.json     # Unlocked lore
 │   └── easter-eggs.json        # Hidden discoveries
+├── .progress                    # Quick-read status snapshot (JSON)
 └── .entrance                    # Empty file = you've been granted entry
                                  # (Created when you pass final Sven challenge)
 ```
@@ -142,6 +296,56 @@ if [ -f ~/.C10/.entrance ]; then
 else
   echo "Keep practicing. Sven is watching."
 fi
+```
+
+### The `.progress` File
+
+A quick-read JSON snapshot of your current status - useful for CLI tools and scripts:
+
+```bash
+~/.C10/.progress
+```
+
+```json
+{
+  "level": "regular",
+  "xp": 2450,
+  "bpm": 118,
+  "streak": 7,
+  "phase": "the_line",
+  "lessons": {
+    "completed": 23,
+    "total": 40
+  },
+  "sven": {
+    "attempts": 3,
+    "passed": 2,
+    "last_attempt": "2026-02-03T19:30:00Z"
+  },
+  "last_session": "2026-02-04T14:30:00Z",
+  "time_in_queue": "47h 23m"
+}
+```
+
+Quick status checks:
+
+```bash
+# One-liner progress bar
+c10 status
+# ████████████░░░░░░░░ 58% → The Line
+# 🔥 7-day streak | ♫ 118 BPM | ⚡ 2450 XP
+
+# Check level in scripts
+level=$(jq -r '.level' ~/.C10/.progress)
+if [ "$level" = "berghainer" ]; then
+  echo "You're on the dance floor."
+fi
+
+# Feed to your prompt (Fish/Starship)
+function c10_prompt
+  set progress (jq -r '"\(.lessons.completed)/\(.lessons.total)"' ~/.C10/.progress)
+  echo "[$progress]"
+end
 ```
 
 ---
