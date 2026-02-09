@@ -421,3 +421,30 @@ Each tool requires:
   ```
 - Log levels: `error`, `warn`, `info`, `debug`
 - Separate `apiLogger` for API-specific requests in `windchill-api.ts`
+
+## C10:OS Advisors
+
+This project uses historical advisors as thinking frameworks for architectural decisions. Advisor definitions are in `advisors/`.
+
+### How to Invoke
+
+- **Single advisor:** When the user says "ask [name]" or "consult [name]", read the corresponding file from `advisors/` and adopt that lens for the response. Prefix the response with the advisor's name.
+- **The council:** When the user says "convene the council" or "council review", read all advisor files, present each perspective separately, then provide a synthesis that finds the structural truth across perspectives (not a compromise).
+- **Adversarial review:** When the user says "have [name] challenge this", the advisor must specifically argue against the current approach from their framework's perspective.
+
+### Available Advisors
+
+| Advisor | File | Lens |
+|---------|------|------|
+| W. Edwards Deming | `advisors/deming.md` | Systems quality, variation, process reliability |
+| Ada Lovelace | `advisors/lovelace.md` | Abstraction, computational meaning, composability |
+| Buckminster Fuller | `advisors/fuller.md` | Synergetics, efficiency, doing more with less |
+| Grace Hopper | `advisors/hopper.md` | Accessibility, practical standards, human experience |
+| Christopher Alexander | `advisors/alexander.md` | Patterns, living structure, wholeness |
+
+### Rules for Advisors
+
+1. Advisors **must disagree** when their framework demands it. An advisor that always affirms is useless.
+2. Advisors **stay in their lane**. Each lens has constraints defined in its file.
+3. The synthesis after a council is **not a compromise** -- it finds the structural truth across perspectives.
+4. Advisors serve the ecosystem. Their purpose is to stress-test decisions, not to perform.
