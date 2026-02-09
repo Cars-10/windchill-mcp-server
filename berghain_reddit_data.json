@@ -1,0 +1,263 @@
+{
+  "metadata": {
+    "query": "Berghain",
+    "source": "Reddit (via web search aggregation)",
+    "subreddits_referenced": [
+      "r/Berghain_Community",
+      "r/berghain",
+      "r/berlin",
+      "r/techno"
+    ],
+    "subreddit_stats": {
+      "r/Berghain_Community": {
+        "members": 66000,
+        "description": "Active community for Berghain discussions, tips, and experiences"
+      },
+      "r/berghain": {
+        "status": "quarantined",
+        "description": "berghain / panorama bar"
+      }
+    },
+    "date_collected": "2026-02-09",
+    "note": "Reddit API was not directly accessible. Data compiled from web search results referencing Reddit posts and discussions."
+  },
+  "posts": [
+    {
+      "id": 1,
+      "title": "DJ Lag shares detailed account of playing at Berghain",
+      "subreddit": "r/Berghain_Community",
+      "author": "DJ Lag (Serbian DJ, Mord-signed techno selector)",
+      "type": "experience_report",
+      "content": "It's an atmosphere of acceptance, freedom and love and you generally feel like you can be yourself. For us who have a general feeling of not really belonging anywhere – this is the one place we can relax and feel not only welcome, but actually a part of something.",
+      "additional_quotes": [
+        "Playing Berghain was a dream come true. It was literally the last thing off of my bucket list.",
+        "People usually focus on the sexual aspect, but it's so much more than that."
+      ],
+      "context": "DJ Lag had previously been rejected as a party-goer three times on the same night before eventually playing a Saturday night Klubnacht set.",
+      "media_coverage": [
+        "https://djmag.com/news/dj-shares-detailed-account-playing-berghain",
+        "https://www.technostation.tv/dj-played-at-berghain-and-posted-this-on-reddit-about-it/"
+      ],
+      "engagement": "high - covered by DJ Mag and Techno Station"
+    },
+    {
+      "id": 2,
+      "title": "Elon Musk rejected from Berghain - eyewitness account",
+      "subreddit": "r/berlin",
+      "author": "KaspersLunita",
+      "type": "eyewitness_report",
+      "content": "Musk attempted to bypass the standard queue by heading straight to the guestlist entrance, a move that didn't sit well with Berghain's head bouncer, Sven Marquardt. Musk was rejected by Marquardt himself.",
+      "cultural_impact": "The phrase 'Elon Musk didn't get into Berghain' became a ubiquitous meme in Berlin - plastered on stickers, shared on social media, and incorporated into graffiti.",
+      "media_coverage": [
+        "https://www.vice.com/en/article/elon-musk-berghain-refuses-entry/",
+        "https://berlinguide.de/money-cant-buy-you-love-the-story-behind-elon-musks-berghain-rejection/"
+      ],
+      "engagement": "viral"
+    },
+    {
+      "id": 3,
+      "title": "Berghain's new soap dispensers are confusing everyone",
+      "subreddit": "r/Berghain_Community",
+      "author": "unknown",
+      "type": "humor",
+      "content": "It took me 10 minutes to figure out how this shit worked.",
+      "context": "New soap dispensers installed at Berghain sparked a lively discussion in what The Berliner called the 'Berghain Reddit war room', with clubbers complaining the dispensers were always empty.",
+      "media_coverage": [
+        "https://www.the-berliner.com/berlin/berghain-club-new-soap-dispensers-confusing-reddit/"
+      ],
+      "engagement": "moderate - picked up by The Berliner"
+    },
+    {
+      "id": 4,
+      "title": "How the Berghain closing experience has changed over the years",
+      "subreddit": "r/Berghain_Community",
+      "author": "unknown (regular attendee)",
+      "type": "discussion",
+      "content": "I've been thinking a lot lately about how the closing at Berghain has changed.",
+      "key_arguments": {
+        "complaint": "Profit now takes priority, and the days when DJs could play as long as they wanted are over. What used to sometimes extend into a Monday afternoon closing is reportedly no longer the case — everything is now strictly scheduled.",
+        "defense": "There are legal regulations. The staff has a life and needs to go home too."
+      },
+      "community_reaction": "Mixed - some regulars agreed about commercialization, others were understanding about practical constraints.",
+      "media_coverage": [
+        "https://www.berlin-live.de/freizeit/ausgehen/berghain-closing-magie-club-berlin-verloren-id415408.html"
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Boycott Berghain - Palestine solidarity discussion",
+      "subreddit": "r/Berghain_Community",
+      "author": "various",
+      "type": "political_discussion",
+      "date_range": "March 2024 - ongoing",
+      "content": "A boycott against Berghain was organized due to its silence about the escalating genocide in Palestine. In March 2024, Ravers for Palestine and DJs Against Apartheid called for a boycott.",
+      "key_details": "Many of the DJs refusing to play at Berghain are BIPOC, queer, and trans, including artists like Cait, Beatrice M./Bait, and Josey Rebelle.",
+      "subreddit_response": "Led to new moderation rules including 'don't demonize the mod team' and 'no politics allowed'.",
+      "media_coverage": [
+        "https://theleftberlin.com/boycott-berghain-from-march-2024-to-now/"
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Assault incident at Panorama Bar - March 2025",
+      "subreddit": "r/Berghain_Community",
+      "author": "unknown",
+      "date": "2025-03-02",
+      "type": "safety_report",
+      "content": "A man with a 'big Berghain tattoo on his neck' allegedly committed an assault in the Panorama Bar toilets on Sunday, March 2, 2025.",
+      "outcome": "Reddit thread snowballed into a police investigation.",
+      "engagement": "high"
+    },
+    {
+      "id": 7,
+      "title": "Berghain closure rumors discussion",
+      "subreddit": "r/Berghain_Community",
+      "author": "various",
+      "type": "discussion",
+      "content": "Rumors circulating about a potential Berghain club closure after 18 years generated significant discussion across social media platforms.",
+      "engagement": "high"
+    }
+  ],
+  "community_tips_and_advice": {
+    "source": "Aggregated from Reddit discussions across r/Berghain_Community, r/berlin, and r/techno",
+    "entry_tips": {
+      "clothing": [
+        "Dark, minimalist clothing is the norm but not a strict rule",
+        "Avoid anything too flashy or mainstream",
+        "Sports jerseys are the only confirmed absolute no-no",
+        "Choose comfortable outfits for hours of dancing",
+        "Bring an extra shirt or shorts in a backpack — shows you're prepared for the experience",
+        "It gets very hot quickly if you wear jeans"
+      ],
+      "group_size": [
+        "Groups of 4 or more almost never get in",
+        "Maximum recommended group size is 3",
+        "Best chances going alone or with one friend",
+        "If in a larger group, split into pairs or trios"
+      ],
+      "at_the_door": [
+        "You'll be asked: 'How many are in your group?' and 'Who are you here to see?'",
+        "Know the DJ lineup before you go",
+        "Have a few German phrases ready",
+        "Learn: 'Tut mir Leid, ich spreche kein Deutsch' (Sorry, I don't speak German)",
+        "The bouncer's word is final — no one has ever talked their way in after Sven said no"
+      ],
+      "queue_behavior": [
+        "Bouncers observe you in the queue before you reach the door",
+        "Stay calm, confident, and patient",
+        "Don't be loud or talk excessively",
+        "Don't take selfies — bouncers will send you home",
+        "Don't throw beer bottles or litter",
+        "Don't catcall anyone"
+      ],
+      "sobriety": [
+        "Don't be extremely drunk in line — high chance of rejection",
+        "They will make you remove sunglasses at the door to check your eyes",
+        "Don't start the party too early"
+      ],
+      "timing": [
+        "Avoid Friday/Saturday midnight to 2am — enormous lines with no entry guarantee",
+        "Later in the night or early morning is better",
+        "Bouncer shift changes at 8am and 6pm",
+        "Sunday morning can be a good time to try"
+      ],
+      "myths_busted": [
+        "Wearing sunglasses at night won't help",
+        "Pretending not to care doesn't work",
+        "Straight men pretending to be gay by holding hands is a transparent tactic that doesn't work",
+        "You don't HAVE to wear all black"
+      ]
+    },
+    "inside_tips": [
+      "Leave everything you don't need at the cloakroom",
+      "No photography — stickers are placed on phone cameras at entry",
+      "Refill water bottles in the bathroom to save money",
+      "Parties can last for days — pace yourself",
+      "Going alone is fine — you'll meet people",
+      "The first floor (Berghain) is dark with heavy techno; Panorama Bar upstairs has softer house/techno"
+    ],
+    "safety_advice": [
+      "Stick with friends",
+      "Plan your transportation",
+      "Stay aware of your surroundings",
+      "Trust your instincts — if something feels off, leave",
+      "Never accept drinks or substances from strangers"
+    ],
+    "practical_info_2025": {
+      "entry_price": "Typically 28-30 EUR for Klubnacht, less for other nights",
+      "reentry_fee": "5 EUR (pay once per Klubnacht)",
+      "payment": "Card accepted at entrance and bars since September 2025; cash still needed at coat check"
+    }
+  },
+  "academic_research": {
+    "title": "Study probes the logic behind Berlin club door policies",
+    "published_in": "Journal of Marketing",
+    "date": "2025-03",
+    "institutions": "Joint report by German, British, and Swedish universities",
+    "key_finding": "Selectors are assessing the extent to which people 'fit in' but, paradoxically, also whether they 'stand out'.",
+    "bouncer_quote": "It's subjective. Only a few of my guys are allowed to select guests at the door. They have to understand what Berghain is all about first, and I try to give them that foundation. Beyond that, there are no set rules. — Sven Marquardt",
+    "source": "https://www.euronews.com/culture/2025/03/26/berghain-more-berg-nein-study-probes-the-logic-behind-berlin-club-door-policies"
+  },
+  "sources": [
+    {
+      "title": "DJ shares detailed account of playing at Berghain - DJ Mag",
+      "url": "https://djmag.com/news/dj-shares-detailed-account-playing-berghain"
+    },
+    {
+      "title": "Berghain? More Berg-nein: Study probes door policies - Euronews",
+      "url": "https://www.euronews.com/culture/2025/03/26/berghain-more-berg-nein-study-probes-the-logic-behind-berlin-club-door-policies"
+    },
+    {
+      "title": "Berlin Nightlife: A Guide from Reddit - Original Pub Crawls",
+      "url": "https://originalpubcrawls.com/berlin-nightlife-a-guide-from-reddit/"
+    },
+    {
+      "title": "Berghain's new soap is confusing people - The Berliner",
+      "url": "https://www.the-berliner.com/berlin/berghain-club-new-soap-dispensers-confusing-reddit/"
+    },
+    {
+      "title": "How to Get Into Berghain - The Berliner",
+      "url": "https://www.the-berliner.com/music-clubs/how-do-i-get-into-berghain/"
+    },
+    {
+      "title": "Boycott of Berghain: from March 2024 to now - The Left Berlin",
+      "url": "https://theleftberlin.com/boycott-berghain-from-march-2024-to-now/"
+    },
+    {
+      "title": "Elon Musk's Berghain Rejection - Berlinguide",
+      "url": "https://berlinguide.de/money-cant-buy-you-love-the-story-behind-elon-musks-berghain-rejection/"
+    },
+    {
+      "title": "Did Elon Musk Get Rejected From Berghain? - Vice",
+      "url": "https://www.vice.com/en/article/elon-musk-berghain-refuses-entry/"
+    },
+    {
+      "title": "DJ played at Berghain Reddit post - Techno Station",
+      "url": "https://www.technostation.tv/dj-played-at-berghain-and-posted-this-on-reddit-about-it/"
+    },
+    {
+      "title": "How to Get Into Berghain Reddit - Oreate AI",
+      "url": "https://www.oreateai.com/blog/how-to-get-into-berghain-reddit/322908e59c8d3467dac5258dcd8edf2d"
+    },
+    {
+      "title": "r/Berghain_Community stats - GummySearch",
+      "url": "https://gummysearch.com/r/Berghain_Community/"
+    },
+    {
+      "title": "r/berghain subreddit stats",
+      "url": "https://subredditstats.com/r/berghain"
+    },
+    {
+      "title": "What not to do at Berghain - The Berliner",
+      "url": "https://www.the-berliner.com/music-clubs/what-not-to-do-at-berghain-how-to-avoid-the-biggest-mistakes/"
+    },
+    {
+      "title": "How to Get into Berghain - Berlinguide 2025",
+      "url": "https://berlinguide.de/how-to-get-into-berghain-the-ultimate-2025-guide-insider-tips-and-secrets/"
+    },
+    {
+      "title": "28 tips on how to get past Berghain bouncers - Mixmag",
+      "url": "https://mixmag.net/read/28-tips-on-how-to-get-past-the-bouncers-at-berghain-news"
+    }
+  ]
+}
