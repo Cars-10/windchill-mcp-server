@@ -27,6 +27,7 @@ import { ClfStructureAgent } from './agents/clfstructure-agent.js';
 import { SavedSearchAgent } from './agents/savedsearch-agent.js';
 import { ServiceInfoMgmtAgent } from './agents/serviceinfomgmt-agent.js';
 import { PTCAgent } from './agents/ptc-agent.js';
+import { OculusAgent } from './agents/oculus-agent.js';
 
 // Suppress npm warnings before loading anything
 process.env.NPM_CONFIG_LOGLEVEL = 'silent';
@@ -89,6 +90,9 @@ const agents = {
   savedsearch: new SavedSearchAgent(),
   serviceinfomgmt: new ServiceInfoMgmtAgent(),
   ptc: new PTCAgent(),
+
+  // XR/Spatial Integration
+  oculus: new OculusAgent(),
 };
 
 // Collect all tools from agents
